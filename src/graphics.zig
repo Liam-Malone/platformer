@@ -37,11 +37,11 @@ pub const Color = enum(u32) {
 pub const Window = struct {
     window: *c.SDL_Window,
     renderer: *c.SDL_Renderer,
-    width: u32,
-    height: u32,
+    w: i32,
+    h: i32,
     mode: DisplayMode = DisplayMode.windowed,
 
-    pub fn init(name: []const u8, xpos: u8, ypos: u8, width: u32, height: u32) !Window {
+    pub fn init(name: []const u8, x: u8, y: u8, w: i32, h: i32) !Window {
         if (c.SDL_Init(c.SDL_INIT_VIDEO) < 0) {
             c.SDL_Log("Unable to initialize SDL: {s}\n", c.SDL_GetError());
             return error.SDLInitializationFailed;
@@ -51,7 +51,7 @@ pub const Window = struct {
             c.SDL_Log("Unable to initialize SDL: {s}\n", c.SDL_GetError());
         }
 
-        const window = c.SDL_CreateWindow(@ptrCast(name), @intCast(xpos), @intCast(ypos), @intCast(width), @intCast(height), 0) orelse {
+        const window = c.SDL_CreateWindow(@ptrCast(name), @intCast(x), @intCast(y), @intCast(w), @intCast(h), 0) orelse {
             c.SDL_Log("Unable to initialize SDL: {s}\n", c.SDL_GetError());
             return error.SDLInitializationFailed;
         };
@@ -62,8 +62,8 @@ pub const Window = struct {
         return Window{
             .window = window,
             .renderer = renderer,
-            .width = width,
-            .height = height,
+            .w = w,
+            .h = h,
         };
     }
 
@@ -110,8 +110,8 @@ pub const Window = struct {
         var w: c_int = undefined;
         var h: c_int = undefined;
         _ = c.SDL_GetWindowSize(self.window, @ptrCast(&w), @ptrCast(&h));
-        self.width = @intCast(w);
-        self.height = @intCast(h);
+        self.w = @intCast(w);
+        self.h = @intCast(h);
     }
     pub fn update(self: *Window) void {
         window_size(self);

@@ -3,6 +3,7 @@ const graphics = @import("graphics.zig");
 const audio = @import("audio.zig");
 const player = @import("player.zig");
 const map = @import("map.zig");
+const platforms = @import("platforms.zig");
 const c = @import("c.zig");
 
 const Player = player.Player;
@@ -15,8 +16,8 @@ const WINDOW_HEIGHT = 600;
 const TILE_WIDTH = 20;
 const TILE_HEIGHT = 20;
 
-var window_width: u32 = 800;
-var window_height: u32 = 600;
+var window_width: i32 = 800;
+var window_height: i32 = 600;
 var quit: bool = false;
 var edit_enabled: bool = false;
 var pause: bool = true;
@@ -34,14 +35,26 @@ pub fn main() !void {
     audio.open_audio(44100, 8, 2048);
     defer audio.close_audio();
 
+    var music = audio.Music.init("assets/music/8_Bit_Nostalgia.mp3");
+    defer music.deinit();
+
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     var alloc = gpa.allocator();
 
     const args = try std.process.argsAlloc(alloc);
     defer std.process.argsFree(alloc, args);
 
-    var the_player = Player.init(100, 100, 40, 60);
+    var the_player = Player.init(20, 0, 40, 60);
     var the_map = try map.Tilemap.init(alloc, WINDOW_WIDTH, WINDOW_HEIGHT, TILE_WIDTH, TILE_HEIGHT);
+
+    var platform_arr = [_]platforms.Platform{
+        platforms.Platform.init(20, 400, 40, 20),
+        platforms.Platform.init(100, 400, 40, 20),
+    };
+
+    music.play();
+
+    var render_grid = true;
 
     while (!quit) {
         var event: c.SDL_Event = undefined;
@@ -54,12 +67,17 @@ pub fn main() !void {
                     'q' => {
                         quit = true;
                     },
-                    ' ' => {
-                        the_player.dy = -10;
-                    },
+                    'a' => the_player.dx = -2,
+                    'd' => the_player.dx = 2,
+                    ' ' => the_player.dy = -20,
                     'e' => edit_enabled = !edit_enabled,
+                    'g' => render_grid = !render_grid,
                     '0' => selected_id = 0,
                     '1' => selected_id = 1,
+                    else => {},
+                },
+                c.SDL_KEYUP => switch (event.key.keysym.sym) {
+                    'a', 'd' => the_player.dx = 0,
                     else => {},
                 },
                 c.SDL_MOUSEBUTTONDOWN => switch (event.button.button) {
@@ -89,12 +107,17 @@ pub fn main() !void {
             }
         }
 
-        the_player.update();
-        window.update();
+        the_player.update(&window, &platform_arr);
         window.set_render_color(BACKGROUND_COLOR);
+        window.update();
         window.render();
 
-        the_map.draw(&window);
+        the_map.draw(&window, render_grid);
+
+        for (platform_arr) |p| {
+            p.draw(&window);
+        }
+
         the_player.draw(&window);
 
         c.SDL_RenderPresent(window.renderer);

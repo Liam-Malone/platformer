@@ -25,7 +25,7 @@ pub const Tilemap = struct {
             };
         }
 
-        pub fn draw(self: *const Tile, window: *graphics.Window) void {
+        pub fn draw(self: *const Tile, window: *graphics.Window, outline: bool) void {
             // draw tile
             window.set_render_color(self.tex);
             window.fill_rect(c.SDL_Rect{
@@ -34,6 +34,7 @@ pub const Tilemap = struct {
                 .w = @intCast(self.w),
                 .h = @intCast(self.h),
             });
+            if (!outline) return;
             // draw tile outline
             window.set_render_color(self.hb_color);
             window.draw_rect(c.SDL_Rect{
@@ -106,10 +107,10 @@ pub const Tilemap = struct {
         self.tiles[y][x].update_id_and_color(id);
     }
 
-    pub fn draw(self: *Tilemap, window: *graphics.Window) void {
+    pub fn draw(self: *Tilemap, window: *graphics.Window, outline: bool) void {
         for (self.tiles) |row| {
             for (row) |tile| {
-                tile.draw(window);
+                tile.draw(window, outline);
             }
         }
     }
