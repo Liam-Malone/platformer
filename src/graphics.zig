@@ -16,10 +16,6 @@ pub const Color = enum(u32) {
     dark_gray = 0x181818FF,
     blue = 0x0000CCFF,
     green = 0x00AA00FF,
-    dirt = 0x3C2414AA,
-    wood = 0x22160B88,
-    stone = 0x7F7F98AA,
-    leaves = 0x00FF0000,
     void = 0xFF00FFFF,
 
     pub fn make_sdl_color(col: Color) c.SDL_Color {
@@ -126,6 +122,9 @@ pub const Window = struct {
     }
     pub fn draw_rect(self: *Window, rect: c.SDL_Rect) void {
         _ = c.SDL_RenderDrawRect(self.renderer, &rect);
+    }
+    pub fn fill_rect(self: *Window, rect: c.SDL_Rect) void {
+        _ = c.SDL_RenderFillRect(self.renderer, &rect);
     }
     pub fn render(self: *Window) void {
         _ = c.SDL_RenderClear(self.renderer);
