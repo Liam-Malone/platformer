@@ -10,6 +10,7 @@
 
 ## GRAPHICAL STUFF:
 
+- [ ] Implement DeltaTime stuff to enable variable fps in-game
 - [ ] Background image/gif for scene
 - [ ] Build in some sort of UI
 - [ ] Compose actual spritesheet for rendering
