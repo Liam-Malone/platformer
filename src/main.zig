@@ -28,6 +28,10 @@ fn place_at_pos(x: u32, y: u32, tilemap: *map.Tilemap) void {
     if (edit_enabled) tilemap.edit_tile(selected_id, x / (TILE_WIDTH), y / (TILE_HEIGHT));
 }
 
+fn save(tm: *map.Tilemap, allocator: std.mem.Allocator) !void {
+    try tm.save(allocator);
+}
+
 pub fn main() !void {
     var window = try Window.init("ShooterGame", 0, 0, window_width, window_height);
     defer window.deinit();
@@ -45,7 +49,7 @@ pub fn main() !void {
     defer std.process.argsFree(alloc, args);
 
     var the_player = Player.init(20, 0, 40, 60);
-    var the_map = try map.Tilemap.init(alloc, WINDOW_WIDTH, WINDOW_HEIGHT, TILE_WIDTH, TILE_HEIGHT);
+    var the_map = try map.Tilemap.init(alloc, WINDOW_WIDTH, WINDOW_HEIGHT, TILE_WIDTH, TILE_HEIGHT, "assets/maps/testing.map");
 
     var platform_arr = [_]platforms.Platform{
         platforms.Platform.init(20, 400, 40, 20),
@@ -53,6 +57,7 @@ pub fn main() !void {
     };
 
     music.play();
+    music.toggle_pause();
 
     var render_grid = true;
 
@@ -67,8 +72,15 @@ pub fn main() !void {
                     'q' => {
                         quit = true;
                     },
+                    'm' => music.toggle_pause(),
                     'a' => the_player.dx = -2,
                     'd' => the_player.dx = 2,
+                    's' => {
+                        if (event.key.keysym.mod & c.KMOD_CTRL != 0) {
+                            var t = try std.Thread.spawn(.{}, save, .{ &the_map, alloc });
+                            t.detach();
+                        }
+                    },
                     ' ' => the_player.dy = -20,
                     'e' => edit_enabled = !edit_enabled,
                     'g' => render_grid = !render_grid,

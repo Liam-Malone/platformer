@@ -57,9 +57,10 @@ pub const Tilemap = struct {
     tiles: [][]Tile,
     w: u32,
     h: u32,
+    cur: []const u8,
 
     // for now create new tilemap, later load one in
-    pub fn init(allocator: Allocator, w: u32, h: u32, tile_w: i32, tile_h: i32) !Tilemap {
+    pub fn init(allocator: Allocator, w: u32, h: u32, tile_w: i32, tile_h: i32, path: []const u8) !Tilemap {
         const tiles_across = w / @as(u32, @intCast(tile_w));
         const tiles_down = h / @as(u32, @intCast(tile_h));
         var map = try build_map(allocator, @intCast(tiles_across), @intCast(tiles_down), tile_w, tile_h);
@@ -67,6 +68,7 @@ pub const Tilemap = struct {
             .tiles = map,
             .w = w,
             .h = h,
+            .cur = path,
         };
     }
 
@@ -85,7 +87,7 @@ pub const Tilemap = struct {
         return try tmp.toOwnedSlice();
     }
 
-    fn export_to_file(self: *Tilemap, file_out: []const u8) !void {
+    fn export_to_file(self: *Tilemap, allocator: Allocator, file_out: []const u8) !void {
         var file = std.fs.cwd().openFile(
             file_out,
             .{ .mode = std.fs.File.OpenMode.write_only },
@@ -93,13 +95,16 @@ pub const Tilemap = struct {
         defer file.close();
         for (self.tiles) |row| {
             for (row) |tile| {
-                _ = try file.write(tile.id);
-                _ = try file.write(" ");
+                _ = try file.write(try std.fmt.allocPrint(allocator, "{d} ", .{tile.id}));
             }
             _ = try file.write("\n");
         }
         const stdout = std.io.getStdOut().writer();
         try stdout.print("File export completed\n", .{});
+    }
+
+    pub fn save(self: *Tilemap, allocator: Allocator) !void {
+        try export_to_file(self, allocator, self.cur);
     }
 
     pub fn edit_tile(self: *Tilemap, id: i32, x: u32, y: u32) void {
