@@ -2,6 +2,7 @@ const std = @import("std");
 const c = @import("c.zig");
 
 const FONT_FILE = @embedFile("DejaVuSans.ttf");
+const SPRITESHEET = "../assets/textures/spritesheet.png"; // TODO: figure out offsetting
 
 const DisplayMode = enum {
     windowed,
