@@ -33,13 +33,71 @@ fn save(tm: *map.Tilemap, allocator: std.mem.Allocator) !void {
 
 // *** TODO ***
 //  FIX THIS THING COS I'M BRAINDEAD
-fn collide_player_with_tiles(p: *player.Player, tm: *map.Tilemap) bool {
-    if (p.y > 0 and tm.tiles[@intCast(@divFloor(p.y + p.h + p.dy, TILE_HEIGHT))][@intCast(p.x)].id == map.Tilemap.Tile_ID.Flooring) {
-        std.debug.print("stopping the player now\n", .{});
-        p.dy = 0;
-        return true;
+fn vcollide_player_with_tiles(p: *player.Player, tm: *map.Tilemap) bool {
+    if (p.y < 0 or p.y > WINDOW_HEIGHT) return false;
+    if (p.dy == 0) {
+        const x_idx: usize = @intCast(@divFloor(p.x, TILE_WIDTH));
+        const y_idx: usize = @intCast(@divFloor(p.y + p.h, TILE_HEIGHT));
+        if (p.y + p.h >= tm.tiles[y_idx][x_idx].y and tm.tiles[y_idx][x_idx].id == map.Tilemap.Tile_ID.Flooring) {
+            return true;
+        }
+        return false;
     }
-    return false;
+    switch (p.dy > 0) {
+        true => {
+            const x_idx: usize = @intCast(@divFloor(p.x, TILE_WIDTH));
+            const y_idx: usize = @intCast(@divFloor(p.y + p.h + p.dy, TILE_HEIGHT));
+            if (p.y + p.h + p.dy >= tm.tiles[y_idx][x_idx].y and tm.tiles[y_idx][x_idx].id == map.Tilemap.Tile_ID.Flooring) {
+                if (p.dy > 0) p.dy = 0;
+                return true;
+            }
+            return false;
+        },
+        false => {
+            const x_idx: usize = @intCast(@divFloor(p.x, TILE_WIDTH));
+            const y_idx: usize = @intCast(@divFloor(if (p.y + p.dy > 0) p.y + p.dy else p.y, TILE_HEIGHT));
+            if (p.y + p.dy <= tm.tiles[y_idx][x_idx].y + tm.tiles[y_idx][x_idx].h and tm.tiles[y_idx][x_idx].id == map.Tilemap.Tile_ID.Flooring) {
+                if (p.dy < 0) p.dy = 0;
+                return true;
+            }
+            return false;
+        },
+    }
+}
+fn hcollide_player_with_tiles(p: *player.Player, tm: *map.Tilemap) bool {
+    if (p.x < 0 or p.x > WINDOW_WIDTH) return false;
+    if (p.dx == 0) {
+        const x_idx: usize = @intCast(@divFloor(p.x, TILE_WIDTH));
+        const y_idx: usize = @intCast(@divFloor(p.y + p.h, TILE_HEIGHT));
+        if (p.x + p.w >= tm.tiles[y_idx - 1][x_idx].x and tm.tiles[y_idx - 1][x_idx].id == map.Tilemap.Tile_ID.Flooring) {
+            std.debug.print("player hit a wall\n", .{});
+            return true;
+        }
+        return false;
+    }
+    switch (p.dx > 0) {
+        true => {
+            const x_idx: usize = @intCast(@divFloor(p.x + p.w + p.dx, TILE_WIDTH));
+            const y_idx: usize = @intCast(@divFloor(p.y + p.h, TILE_HEIGHT));
+            std.debug.print("player x: {d}, tile x: {d}\n", .{ p.x, tm.tiles[y_idx - 1][x_idx].x });
+            if (p.x + p.w + p.dx >= tm.tiles[y_idx - 1][x_idx].x and tm.tiles[y_idx - 1][x_idx].id == map.Tilemap.Tile_ID.Flooring) {
+                std.debug.print("player hit a wall\n", .{});
+                if (p.dx > 0) p.dx = 0;
+                return true;
+            }
+            return false;
+        },
+        false => {
+            const x_idx: usize = @intCast(@divFloor(if (p.x + p.dx > 0) p.x + p.dx else p.x, TILE_HEIGHT));
+            const y_idx: usize = @intCast(@divFloor(p.y + p.h, TILE_HEIGHT));
+            if (p.x + p.dx <= tm.tiles[y_idx - 1][x_idx].x + tm.tiles[y_idx - 1][x_idx].w and tm.tiles[y_idx - 1][x_idx].id == map.Tilemap.Tile_ID.Flooring) {
+                std.debug.print("player hit a wall\n", .{});
+                if (p.dx < 0) p.dx = 0;
+                return true;
+            }
+            return false;
+        },
+    }
 }
 
 pub fn main() !void {
@@ -66,7 +124,6 @@ pub fn main() !void {
 
     var render_grid = true;
 
-    var time: ?i64 = null;
     while (!quit) {
         var event: c.SDL_Event = undefined;
         while (c.SDL_PollEvent(&event) != 0) {
@@ -87,7 +144,7 @@ pub fn main() !void {
                             t.detach();
                         }
                     },
-                    ' ' => the_player.dy = -40,
+                    ' ' => the_player.dy = -20,
                     'e' => edit_enabled = !edit_enabled,
                     'g' => render_grid = !render_grid,
                     '0' => selected_id = 0,
@@ -133,16 +190,14 @@ pub fn main() !void {
         the_map.draw(&window, render_grid);
 
         the_player.draw(&window);
-        if (time == null) time = std.time.milliTimestamp();
 
-        var speed_up = false;
-        if (std.time.milliTimestamp() - 1000 > time.?) {
-            speed_up = true;
-            time = std.time.milliTimestamp();
+        if (!vcollide_player_with_tiles(&the_player, &the_map)) {
+            if (the_player.dy < 6) the_player.dy += 1;
+            the_player.y += the_player.dy;
         }
-
-        if (!collide_player_with_tiles(&the_player, &the_map) and speed_up) the_player.dy += 1;
-        the_player.y += the_player.dy;
+        if (!hcollide_player_with_tiles(&the_player, &the_map)) {
+            the_player.x += the_player.dx;
+        }
 
         c.SDL_RenderPresent(window.renderer);
         c.SDL_Delay(1000 / FPS);
