@@ -2,10 +2,10 @@
 
 ## MAP STUFF:
 
-- [ ] Make tile ID for platforms (work from there)
+- [x] Make tile ID for platforms (work from there)
 - [ ] Walls
 - [ ] Movable objects
-- [ ] Read map from file
+- [x] Read map from file
 - [ ] Speed up map writing eventually (if needed)
 
 ## GRAPHICAL STUFF:
