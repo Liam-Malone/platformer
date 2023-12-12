@@ -3,7 +3,6 @@ const graphics = @import("graphics.zig");
 const audio = @import("audio.zig");
 const player = @import("player.zig");
 const map = @import("map.zig");
-const platforms = @import("platforms.zig");
 const c = @import("c.zig");
 
 const Player = player.Player;
@@ -21,7 +20,7 @@ var window_height: i32 = 600;
 var quit: bool = false;
 var edit_enabled: bool = false;
 var pause: bool = true;
-var selected_id: i32 = 1;
+var selected_id: u8 = 1;
 var left_mouse_is_down = false;
 
 fn place_at_pos(x: u32, y: u32, tilemap: *map.Tilemap) void {
@@ -30,6 +29,17 @@ fn place_at_pos(x: u32, y: u32, tilemap: *map.Tilemap) void {
 
 fn save(tm: *map.Tilemap, allocator: std.mem.Allocator) !void {
     try tm.save(allocator);
+}
+
+// *** TODO ***
+//  FIX THIS THING COS I'M BRAINDEAD
+fn collide_player_with_tiles(p: *player.Player, tm: *map.Tilemap) bool {
+    if (p.y > 0 and tm.tiles[@intCast(@divFloor(p.y + p.h + p.dy, TILE_HEIGHT))][@intCast(p.x)].id == map.Tilemap.Tile_ID.Flooring) {
+        std.debug.print("stopping the player now\n", .{});
+        p.dy = 0;
+        return true;
+    }
+    return false;
 }
 
 pub fn main() !void {
@@ -48,19 +58,15 @@ pub fn main() !void {
     const args = try std.process.argsAlloc(alloc);
     defer std.process.argsFree(alloc, args);
 
-    var the_player = Player.init(20, 0, 40, 60);
+    var the_player = Player.init(20, 0, 20, 30, null);
     var the_map = try map.Tilemap.init(alloc, WINDOW_WIDTH, WINDOW_HEIGHT, TILE_WIDTH, TILE_HEIGHT, "assets/maps/testing.map");
-
-    var platform_arr = [_]platforms.Platform{
-        platforms.Platform.init(20, 400, 40, 20),
-        platforms.Platform.init(100, 400, 40, 20),
-    };
 
     music.play();
     music.toggle_pause();
 
     var render_grid = true;
 
+    var time: ?i64 = null;
     while (!quit) {
         var event: c.SDL_Event = undefined;
         while (c.SDL_PollEvent(&event) != 0) {
@@ -81,11 +87,12 @@ pub fn main() !void {
                             t.detach();
                         }
                     },
-                    ' ' => the_player.dy = -20,
+                    ' ' => the_player.dy = -40,
                     'e' => edit_enabled = !edit_enabled,
                     'g' => render_grid = !render_grid,
                     '0' => selected_id = 0,
                     '1' => selected_id = 1,
+                    '2' => selected_id = 2,
                     else => {},
                 },
                 c.SDL_KEYUP => switch (event.key.keysym.sym) {
@@ -119,18 +126,23 @@ pub fn main() !void {
             }
         }
 
-        the_player.update(&window, &platform_arr);
         window.set_render_color(BACKGROUND_COLOR);
         window.update();
         window.render();
 
         the_map.draw(&window, render_grid);
 
-        for (platform_arr) |p| {
-            p.draw(&window);
+        the_player.draw(&window);
+        if (time == null) time = std.time.milliTimestamp();
+
+        var speed_up = false;
+        if (std.time.milliTimestamp() - 1000 > time.?) {
+            speed_up = true;
+            time = std.time.milliTimestamp();
         }
 
-        the_player.draw(&window);
+        if (!collide_player_with_tiles(&the_player, &the_map) and speed_up) the_player.dy += 1;
+        the_player.y += the_player.dy;
 
         c.SDL_RenderPresent(window.renderer);
         c.SDL_Delay(1000 / FPS);
