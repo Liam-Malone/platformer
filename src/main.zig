@@ -31,6 +31,13 @@ fn save(tm: *map.Tilemap, allocator: std.mem.Allocator) !void {
     try tm.save(allocator);
 }
 
+fn is_collidable(t_id: map.Tilemap.Tile_ID) bool {
+    switch (t_id) {
+        .Flooring, .MovingPlatform, .StationaryPlatform => return true,
+        else => return false,
+    }
+}
+
 // *** TODO ***
 //  FIX THIS THING COS I'M BRAINDEAD
 fn vcollide_player_with_tiles(p: *player.Player, tm: *map.Tilemap) bool {
@@ -38,7 +45,7 @@ fn vcollide_player_with_tiles(p: *player.Player, tm: *map.Tilemap) bool {
     if (p.dy == 0) {
         const x_idx: usize = @intCast(@divFloor(p.x, TILE_WIDTH));
         const y_idx: usize = @intCast(@divFloor(p.y + p.h, TILE_HEIGHT));
-        if (p.y + p.h >= tm.tiles[y_idx][x_idx].y and tm.tiles[y_idx][x_idx].id == map.Tilemap.Tile_ID.Flooring) {
+        if (p.y + p.h >= tm.tiles[y_idx][x_idx].y and is_collidable(tm.tiles[y_idx][x_idx].id)) {
             return true;
         }
         return false;
@@ -47,7 +54,7 @@ fn vcollide_player_with_tiles(p: *player.Player, tm: *map.Tilemap) bool {
         true => {
             const x_idx: usize = @intCast(@divFloor(p.x, TILE_WIDTH));
             const y_idx: usize = @intCast(@divFloor(p.y + p.h + p.dy, TILE_HEIGHT));
-            if (p.y + p.h + p.dy >= tm.tiles[y_idx][x_idx].y and tm.tiles[y_idx][x_idx].id == map.Tilemap.Tile_ID.Flooring) {
+            if (p.y + p.h + p.dy >= tm.tiles[y_idx][x_idx].y and is_collidable(tm.tiles[y_idx][x_idx].id)) {
                 if (p.dy > 0) p.dy = 0;
                 return true;
             }
@@ -56,7 +63,7 @@ fn vcollide_player_with_tiles(p: *player.Player, tm: *map.Tilemap) bool {
         false => {
             const x_idx: usize = @intCast(@divFloor(p.x, TILE_WIDTH));
             const y_idx: usize = @intCast(@divFloor(if (p.y + p.dy > 0) p.y + p.dy else p.y, TILE_HEIGHT));
-            if (p.y + p.dy <= tm.tiles[y_idx][x_idx].y + tm.tiles[y_idx][x_idx].h and tm.tiles[y_idx][x_idx].id == map.Tilemap.Tile_ID.Flooring) {
+            if (p.y + p.dy <= tm.tiles[y_idx][x_idx].y + tm.tiles[y_idx][x_idx].h and is_collidable(tm.tiles[y_idx][x_idx].id)) {
                 if (p.dy < 0) p.dy = 0;
                 return true;
             }
@@ -69,8 +76,7 @@ fn hcollide_player_with_tiles(p: *player.Player, tm: *map.Tilemap) bool {
     if (p.dx == 0) {
         const x_idx: usize = @intCast(@divFloor(p.x, TILE_WIDTH));
         const y_idx: usize = @intCast(@divFloor(p.y + p.h, TILE_HEIGHT));
-        if (p.x + p.w >= tm.tiles[y_idx - 1][x_idx].x and tm.tiles[y_idx - 1][x_idx].id == map.Tilemap.Tile_ID.Flooring) {
-            std.debug.print("player hit a wall\n", .{});
+        if (p.x + p.w >= tm.tiles[y_idx - 1][x_idx].x and is_collidable(tm.tiles[y_idx - 1][x_idx].id)) {
             return true;
         }
         return false;
@@ -79,9 +85,7 @@ fn hcollide_player_with_tiles(p: *player.Player, tm: *map.Tilemap) bool {
         true => {
             const x_idx: usize = @intCast(@divFloor(p.x + p.w + p.dx, TILE_WIDTH));
             const y_idx: usize = @intCast(@divFloor(p.y + p.h, TILE_HEIGHT));
-            std.debug.print("player x: {d}, tile x: {d}\n", .{ p.x, tm.tiles[y_idx - 1][x_idx].x });
-            if (p.x + p.w + p.dx >= tm.tiles[y_idx - 1][x_idx].x and tm.tiles[y_idx - 1][x_idx].id == map.Tilemap.Tile_ID.Flooring) {
-                std.debug.print("player hit a wall\n", .{});
+            if (p.x + p.w + p.dx >= tm.tiles[y_idx - 1][x_idx].x and is_collidable(tm.tiles[y_idx - 1][x_idx].id)) {
                 if (p.dx > 0) p.dx = 0;
                 return true;
             }
@@ -90,8 +94,7 @@ fn hcollide_player_with_tiles(p: *player.Player, tm: *map.Tilemap) bool {
         false => {
             const x_idx: usize = @intCast(@divFloor(if (p.x + p.dx > 0) p.x + p.dx else p.x, TILE_HEIGHT));
             const y_idx: usize = @intCast(@divFloor(p.y + p.h, TILE_HEIGHT));
-            if (p.x + p.dx <= tm.tiles[y_idx - 1][x_idx].x + tm.tiles[y_idx - 1][x_idx].w and tm.tiles[y_idx - 1][x_idx].id == map.Tilemap.Tile_ID.Flooring) {
-                std.debug.print("player hit a wall\n", .{});
+            if (p.x + p.dx <= tm.tiles[y_idx - 1][x_idx].x + tm.tiles[y_idx - 1][x_idx].w and is_collidable(tm.tiles[y_idx - 1][x_idx].id)) {
                 if (p.dx < 0) p.dx = 0;
                 return true;
             }
@@ -150,6 +153,7 @@ pub fn main() !void {
                     '0' => selected_id = 0,
                     '1' => selected_id = 1,
                     '2' => selected_id = 2,
+                    '3' => selected_id = 3,
                     else => {},
                 },
                 c.SDL_KEYUP => switch (event.key.keysym.sym) {
@@ -188,6 +192,17 @@ pub fn main() !void {
         window.render();
 
         the_map.draw(&window, render_grid);
+
+        for (the_map.tiles, 0..) |row, i| {
+            for (row, 0..) |_, j| {
+                if (the_map.tiles[i][j].id == .MovingPlatform) {
+                    if (the_map.tiles[i][j].x == 0 or the_map.tiles[i][j].x == WINDOW_WIDTH) the_map.tiles[i][j].dx *= -1;
+                    if (the_map.tiles[i][j].y == 0 or the_map.tiles[i][j].y == WINDOW_HEIGHT) the_map.tiles[i][j].dy *= -1;
+                    the_map.tiles[i][j].x += the_map.tiles[i][j].dx;
+                    the_map.tiles[i][j].y += the_map.tiles[i][j].dy;
+                }
+            }
+        }
 
         the_player.draw(&window);
 

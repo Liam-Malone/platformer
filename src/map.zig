@@ -14,7 +14,9 @@ pub const Tilemap = struct {
     pub const Tile = struct {
         id: Tile_ID,
         x: i32,
+        dx: i32 = 0,
         y: i32,
+        dy: i32 = 0,
         w: i32,
         h: i32,
         hb_color: graphics.Color = graphics.Color.white,
@@ -26,6 +28,7 @@ pub const Tilemap = struct {
                 0 => graphics.Color.dark_gray,
                 1 => graphics.Color.white,
                 2 => graphics.Color.blue,
+                3 => graphics.Color.green,
                 else => graphics.Color.void,
             };
             return Tile{
@@ -63,6 +66,7 @@ pub const Tilemap = struct {
                 0 => graphics.Color.dark_gray,
                 1 => graphics.Color.white,
                 2 => graphics.Color.blue,
+                3 => graphics.Color.green,
                 else => graphics.Color.void,
             };
         }
