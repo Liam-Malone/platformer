@@ -1,80 +1,42 @@
-const std = @import("std");
-const graphics = @import("graphics.zig");
 const c = @import("c.zig");
+const main = @import("main.zig");
+const std = @import("std");
 
 const Allocator = std.mem.Allocator;
 
+pub const TileID = enum(u8) {
+    Wall,
+    Floor,
+};
+
 pub const Tilemap = struct {
-    pub const Tile_ID = enum(u8) {
-        Nothing = 0,
-        Flooring = 1,
-        StationaryPlatform = 2,
-        MovingPlatform = 3,
-    };
     pub const Tile = struct {
-        id: Tile_ID,
+        id: TileID,
         x: i32,
-        dx: i32 = 0,
         y: i32,
-        dy: i32 = 0,
         w: i32,
         h: i32,
-        hb_color: graphics.Color = graphics.Color.white,
-        tex: graphics.Color = graphics.Color.dark_gray,
+        collides: bool,
 
         pub fn init(id: u8, x: i32, y: i32, w: i32, h: i32) Tile {
             std.debug.print("id: {d}, x: {d}, y: {d}\n", .{ id, x, y });
-            const tex = switch (id) {
-                0 => graphics.Color.dark_gray,
-                1 => graphics.Color.white,
-                2 => graphics.Color.blue,
-                3 => graphics.Color.green,
-                else => graphics.Color.void,
-            };
             return Tile{
                 .id = @enumFromInt(id),
                 .x = x,
                 .y = y,
                 .w = w,
                 .h = h,
-                .tex = tex,
+                .collides = switch (@as(TileID, @enumFromInt(id))) {
+                    .Floor => true,
+                    .Wall => false,
+                },
             };
         }
-
-        pub fn draw(self: *const Tile, window: *graphics.Window, outline: bool) void {
-            // draw tile
-            window.set_render_color(self.tex);
-            window.fill_rect(c.SDL_Rect{
-                .x = @intCast(self.x),
-                .y = @intCast(self.y),
-                .w = @intCast(self.w),
-                .h = @intCast(self.h),
-            });
-            if (!outline) return;
-            // draw tile outline
-            window.set_render_color(self.hb_color);
-            window.draw_rect(c.SDL_Rect{
-                .x = @intCast(self.x),
-                .y = @intCast(self.y),
-                .w = @intCast(self.w),
-                .h = @intCast(self.h),
-            });
-        }
-        pub fn update_id_and_color(self: *Tile, id: u8) void {
+        pub fn update_id(self: *Tile, id: u8) void {
             self.id = @enumFromInt(id);
-            self.tex = switch (id) {
-                0 => graphics.Color.dark_gray,
-                1 => graphics.Color.white,
-                2 => graphics.Color.blue,
-                3 => graphics.Color.green,
-                else => graphics.Color.void,
-            };
         }
     };
-
-    tiles: [][]Tile,
-    w: u32,
-    h: u32,
+    map: [][]Tile,
     cur: []const u8,
 
     // for now create new tilemap, later load one in
@@ -89,9 +51,7 @@ pub const Tilemap = struct {
         }
 
         return Tilemap{
-            .tiles = map,
-            .w = w,
-            .h = h,
+            .map = map,
             .cur = path,
         };
     }
@@ -124,7 +84,7 @@ pub const Tilemap = struct {
     fn read_from_file(allocator: Allocator, path: []const u8, tile_w: i32, tile_h: i32) ![][]Tile {
         var map = std.ArrayList([]Tile).init(allocator);
         const file = try std.fs.cwd().openFile(path, .{});
-        const buf = try allocator.alloc(u8, 4000);
+        const buf = try allocator.alloc(u8, 40000);
         _ = try file.reader().readAll(buf);
         defer allocator.free(buf);
 
@@ -156,7 +116,7 @@ pub const Tilemap = struct {
             .{ .mode = std.fs.File.OpenMode.write_only },
         ) catch try std.fs.cwd().createFile(file_out, .{});
         defer file.close();
-        for (self.tiles) |row| {
+        for (self.map) |row| {
             for (row) |tile| {
                 _ = try file.write(try std.fmt.allocPrint(allocator, "{d} ", .{@intFromEnum(tile.id)}));
             }
@@ -171,15 +131,7 @@ pub const Tilemap = struct {
     }
 
     pub fn edit_tile(self: *Tilemap, id: u8, x: u32, y: u32) void {
-        if (y >= self.tiles.len or x >= self.tiles[0].len) return;
-        self.tiles[y][x].update_id_and_color(id);
-    }
-
-    pub fn draw(self: *Tilemap, window: *graphics.Window, outline: bool) void {
-        for (self.tiles) |row| {
-            for (row) |tile| {
-                tile.draw(window, outline);
-            }
-        }
+        if (y >= self.map.len or x >= self.map[0].len) return;
+        self.map[y][x].update_id(id);
     }
 };
