@@ -149,6 +149,7 @@ const Vec2 = struct {
 // BEGIN CONSTANTS
 const FPS = 60;
 const FRAME_DELAY = 1000 / FPS;
+const FRAME_AVG_COUNT = 10;
 const BACKGROUND_COLOR = Color.dark_gray;
 const SCREEN_WIDTH = 1200;
 const SCREEN_HEIGHT = 900;
@@ -175,7 +176,6 @@ fn direct_cam_toward_player(player: *Player, cam: *Camera, tmap: *map.Tilemap) v
     const dx = @divFloor((player.x + player.w) - (cam.x + xmid), 10);
     const dy = @divFloor((player.y + player.h) - (cam.y + ymid), 10);
 
-    std.debug.print("max y (tiley - camh): {d}\ny + dy = newy : {d} + {d} = {d}\n", .{ max_y, cam.y, dy, cam.y + dy });
     if (dx > 0) {
         cam.dx = if (cam.x + dx > max_x) 0 else dx;
     } else {
@@ -187,6 +187,15 @@ fn direct_cam_toward_player(player: *Player, cam: *Camera, tmap: *map.Tilemap) v
         cam.dy = if (cam.y + dy > min_y) dy else 0;
     }
 }
+
+fn fps(avg_arr: []u32) u32 {
+    var frames: u32 = 0;
+    for (avg_arr) |time| {
+        frames += time;
+    }
+    return frames / @as(u32, @intCast(avg_arr.len));
+}
+
 fn place_at_pos(x: u32, y: u32, tilemap: *map.Tilemap, id: u8) void {
     tilemap.edit_tile(id, x / (TILE_WIDTH), y / (TILE_HEIGHT));
 }
@@ -281,7 +290,8 @@ pub fn main() !void {
     var player_spawned = false;
     var frame_start: u32 = undefined;
     var frame_time: u32 = undefined;
-    var fps: f64 = 0;
+    var frame_avg = std.mem.zeroes([FRAME_AVG_COUNT]u32);
+    var frame_avg_idx: usize = 0;
 
     var map_tex_used: ?*c.SDL_Texture = null;
     var map_edit_enabled: bool = false;
@@ -449,7 +459,7 @@ pub fn main() !void {
             }
         }
 
-        if (player.x + player.dx < 0 or player.x + player.w + player.dx > tmap.map[0].len) player.x -= @divFloor(player.dx, 2); // will need to change for larger maps
+        if (player.x + player.dx < 0 or player.x + player.w + player.dx > tmap.map[0].len) player.x -= @divFloor(player.dx, 2);
 
         if (!map_edit_enabled) {
             player.x += player.dx;
@@ -569,10 +579,15 @@ pub fn main() !void {
             );
         }
 
-        frame_time = c.SDL_GetTicks() - frame_start;
         c.SDL_RenderPresent(renderer);
-        fps = if (frame_time > 0) 1000 / @as(f64, @floatFromInt(frame_time)) else 0;
-        //std.debug.print("fps: {d}\n", .{fps});
+        frame_time = c.SDL_GetTicks() - frame_start;
+        if (frame_avg_idx == FRAME_AVG_COUNT) {
+            frame_avg_idx = 0;
+            std.debug.print("fps: {d}\n", .{fps(&frame_avg)});
+        } else {
+            frame_avg[frame_avg_idx] = if (frame_time > 0) 1000 / frame_time else 0;
+            frame_avg_idx += 1;
+        }
         if (FRAME_DELAY > frame_time) c.SDL_Delay(FRAME_DELAY - frame_time);
     }
 }
