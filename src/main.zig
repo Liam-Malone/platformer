@@ -100,8 +100,8 @@ const Music = struct {
 const Player = struct {
     x: i32 = (SCREEN_WIDTH / 2) - 80,
     y: i32 = (SCREEN_HEIGHT / 2) - 80,
-    w: c_int = 80,
-    h: c_int = 80,
+    w: c_int = 36,
+    h: c_int = 64,
     dx: i32 = 0,
     dy: i32 = 0,
 };
@@ -161,13 +161,31 @@ fn collide(rect_a: *const c.SDL_Rect, rect_b: *const c.SDL_Rect) bool {
     return c.SDL_HasIntersection(rect_a, rect_b) != 0;
 }
 
-fn direct_cam_toward_player(player: *Player, cam: *Camera) void {
+fn direct_cam_toward_player(player: *Player, cam: *Camera, tmap: *map.Tilemap) void {
+    const min_x = 0;
+    const min_y = 0;
+
     const xmid = @divFloor(cam.w, 2);
     const ymid = @divFloor(cam.h, 2);
-    const dx = (player.x + player.w) - (cam.x + xmid);
-    const dy = (player.y + player.h) - (cam.y + ymid);
-    if (cam.x + dx > 0 and cam.x + cam.w + cam.dx < SCREEN_WIDTH) cam.x += dx;
-    if (cam.y + dy > 0 and cam.y + cam.h + cam.dy < SCREEN_HEIGHT) cam.y += dy;
+
+    const max_x = @as(i32, @intCast(tmap.map[0][tmap.map[0].len - 1].x + TILE_WIDTH)) - cam.w;
+    const max_y = @as(i32, @intCast(tmap.map[tmap.map.len - 1][0].y + TILE_HEIGHT)) - cam.h;
+    //const max_y = @as(i32, @intCast(tmap.map.len * TILE_HEIGHT)) - cam.h;
+
+    const dx = @divFloor((player.x + player.w) - (cam.x + xmid), 10);
+    const dy = @divFloor((player.y + player.h) - (cam.y + ymid), 10);
+
+    std.debug.print("max y (tiley - camh): {d}\ny + dy = newy : {d} + {d} = {d}\n", .{ max_y, cam.y, dy, cam.y + dy });
+    if (dx > 0) {
+        cam.dx = if (cam.x + dx > max_x) 0 else dx;
+    } else {
+        cam.dx = if (cam.x + dx < min_x) 0 else dx;
+    }
+    if (dy > 0) {
+        cam.dy = if (cam.y + dy < max_y) dy else 0;
+    } else {
+        cam.dy = if (cam.y + dy > min_y) dy else 0;
+    }
 }
 fn place_at_pos(x: u32, y: u32, tilemap: *map.Tilemap, id: u8) void {
     tilemap.edit_tile(id, x / (TILE_WIDTH), y / (TILE_HEIGHT));
@@ -255,18 +273,21 @@ pub fn main() !void {
     defer c.SDL_DestroyTexture(floor);
     const wall = c.IMG_LoadTexture(renderer, "assets/textures/wall.png");
     defer c.SDL_DestroyTexture(wall);
+    const spawn_point = c.IMG_LoadTexture(renderer, "assets/textures/spawn_point.png");
+    defer c.SDL_DestroyTexture(spawn_point);
 
     var camera = Camera{};
 
+    var player_spawned = false;
     var frame_start: u32 = undefined;
     var frame_time: u32 = undefined;
+    var fps: f64 = 0;
 
     var map_tex_used: ?*c.SDL_Texture = null;
-    var map_edit_enabled: bool = true;
+    var map_edit_enabled: bool = false;
 
     var left_mouse_is_down: bool = false;
     var tile_id_selected: u8 = 0;
-    var render_grid = true;
 
     var debug_view = false;
     var quit = false;
@@ -284,8 +305,8 @@ pub fn main() !void {
                         quit = true;
                     },
                     'm' => music.?.toggle_pause(),
-                    'a' => player.dx = -6,
-                    'd' => player.dx = 6,
+                    'a' => player.dx = -8,
+                    'd' => player.dx = 8,
                     's' => {
                         if (map_edit_enabled) {
                             if (event.key.keysym.mod & c.KMOD_CTRL != 0) {
@@ -296,11 +317,10 @@ pub fn main() !void {
                     },
                     ' ' => player.dy = -20,
                     'e' => map_edit_enabled = !map_edit_enabled,
-                    'g' => render_grid = !render_grid,
                     '0' => tile_id_selected = 0,
                     '1' => tile_id_selected = 1,
                     '2' => tile_id_selected = 2,
-                    '3' => tile_id_selected = 3,
+                    //'3' => tile_id_selected = 3,
                     c.SDLK_F3 => debug_view = !debug_view,
                     else => {},
                 },
@@ -331,12 +351,30 @@ pub fn main() !void {
                     },
                     false => {},
                 },
-
+                c.SDL_MOUSEWHEEL => {
+                    if (map_edit_enabled) camera.dx = if (event.wheel.x > 0) 20 else if (event.wheel.x < 0) -20 else 0;
+                    if (map_edit_enabled) camera.dy = if (event.wheel.y > 0) -20 else if (event.wheel.y < 0) 20 else 0;
+                },
                 else => {},
             }
         }
 
         // do stuff
+        if (!player_spawned) {
+            for (tmap.map) |row| {
+                for (row) |tile| {
+                    switch (tile.id) {
+                        .SpawnPoint => {
+                            player.x = tile.x;
+                            player.y = tile.y - player.h;
+                            player_spawned = true;
+                        },
+                        else => {},
+                    }
+                }
+            }
+        }
+
         for (tmap.map) |row| {
             for (row) |tile| {
                 switch (tile.collides) {
@@ -352,7 +390,8 @@ pub fn main() !void {
                             .w = tile.w,
                             .h = tile.h,
                         })) {
-                            player.dy = @divFloor(player.dy, 3);
+                            player.y += @divFloor(player.dy, 2) * -1;
+                            player.dy = @divFloor(player.dy, 2);
                         }
                         if (collide(&c.SDL_Rect{
                             .x = player.x + player.dx,
@@ -373,59 +412,95 @@ pub fn main() !void {
             }
         }
 
-        if (player.x + player.dx < 0 or player.x + player.w + player.dx > SCREEN_WIDTH) player.x -= @divFloor(player.dx, 2); // will need to change for larger maps
+        for (tmap.map) |row| {
+            for (row) |tile| {
+                switch (tile.collides) {
+                    true => {
+                        if (collide(&c.SDL_Rect{
+                            .x = player.x,
+                            .y = player.y + player.dy,
+                            .w = player.w,
+                            .h = player.h,
+                        }, &c.SDL_Rect{
+                            .x = tile.x,
+                            .y = tile.y,
+                            .w = tile.w,
+                            .h = tile.h,
+                        })) {
+                            player.y += @divFloor(player.dy, 2) * -1;
+                            player.dy = @divFloor(player.dy, 2);
+                        }
+                        if (collide(&c.SDL_Rect{
+                            .x = player.x + player.dx,
+                            .y = player.y,
+                            .w = player.w,
+                            .h = player.h,
+                        }, &c.SDL_Rect{
+                            .x = tile.x,
+                            .y = tile.y,
+                            .w = tile.w,
+                            .h = tile.h,
+                        })) {
+                            player.x -= @divFloor(player.dx, 2);
+                        }
+                    },
+                    false => {},
+                }
+            }
+        }
+
+        if (player.x + player.dx < 0 or player.x + player.w + player.dx > tmap.map[0].len) player.x -= @divFloor(player.dx, 2); // will need to change for larger maps
 
         if (!map_edit_enabled) {
             player.x += player.dx;
             player.y += player.dy;
             player.dy += 1;
         }
-        //if (!vcollide_player_with_tiles(&player, &tmap)) {
-        //    if (player.dy < 6) player.dy += 1;
-        //    player.y += player.dy;
-        //}
-        //if (!hcollide_player_with_tiles(&player, &tmap)) {
-        //    player.x += player.dx;
-        //}
+
+        switch (map_edit_enabled) {
+            true => {
+                camera.x += camera.dx;
+                if (camera.y + camera.dy + camera.h + TILE_HEIGHT + TILE_HEIGHT / 2 < tmap.map.len * TILE_HEIGHT) camera.y += camera.dy;
+                camera.dy += if (camera.dy > 0) -1 else if (camera.dy < 0) 1 else 0;
+                camera.dx += if (camera.dx > 0) -1 else if (camera.dx < 0) 1 else 0;
+            },
+            false => {
+                camera.x += camera.dx;
+                camera.y += camera.dy;
+            },
+        }
 
         // no more doing, just draw
         set_render_color(renderer, Color.dark_gray);
         _ = c.SDL_RenderClear(renderer);
 
-        direct_cam_toward_player(&player, &camera);
+        if (!map_edit_enabled) direct_cam_toward_player(&player, &camera, &tmap);
 
         for (tmap.map) |row| {
             for (row) |tile| {
                 const x_to_cam = tile.x - camera.x;
                 const y_to_cam = tile.y - camera.y;
-                switch (tile.id) {
-                    .Wall => {
-                        map_tex_used = wall;
-                    },
-                    .Floor => {
-                        map_tex_used = floor;
-                    },
-                }
-                _ = c.SDL_RenderCopy(
-                    renderer,
-                    map_tex_used,
-                    &c.SDL_Rect{
-                        .x = 0,
-                        .y = 0,
-                        .w = 32,
-                        .h = 32,
-                    },
-                    &c.SDL_Rect{
-                        .x = @intCast(x_to_cam),
-                        .y = @intCast(y_to_cam),
-                        .w = tile.w,
-                        .h = tile.h,
-                    },
-                );
-                if (debug_view) {
-                    set_render_color(renderer, Color.green);
-                    _ = c.SDL_RenderDrawRect(
+                if (x_to_cam + TILE_WIDTH > 0 and x_to_cam < camera.x + camera.w and y_to_cam + TILE_HEIGHT > 0 and y_to_cam < camera.y + camera.h) {
+                    switch (tile.id) {
+                        .Wall => {
+                            map_tex_used = wall;
+                        },
+                        .Floor => {
+                            map_tex_used = floor;
+                        },
+                        .SpawnPoint => {
+                            map_tex_used = spawn_point;
+                        },
+                    }
+                    _ = c.SDL_RenderCopy(
                         renderer,
+                        map_tex_used,
+                        &c.SDL_Rect{
+                            .x = 0,
+                            .y = 0,
+                            .w = 32,
+                            .h = 32,
+                        },
                         &c.SDL_Rect{
                             .x = @intCast(x_to_cam),
                             .y = @intCast(y_to_cam),
@@ -433,6 +508,18 @@ pub fn main() !void {
                             .h = tile.h,
                         },
                     );
+                    if (debug_view) {
+                        set_render_color(renderer, Color.green);
+                        _ = c.SDL_RenderDrawRect(
+                            renderer,
+                            &c.SDL_Rect{
+                                .x = @intCast(x_to_cam),
+                                .y = @intCast(y_to_cam),
+                                .w = tile.w,
+                                .h = tile.h,
+                            },
+                        );
+                    }
                 }
             }
         }
@@ -444,7 +531,7 @@ pub fn main() !void {
                 &c.SDL_Rect{
                     .x = 0,
                     .y = 0,
-                    .w = 32,
+                    .w = 18,
                     .h = 32,
                 },
                 &c.SDL_Rect{
@@ -484,6 +571,8 @@ pub fn main() !void {
 
         frame_time = c.SDL_GetTicks() - frame_start;
         c.SDL_RenderPresent(renderer);
+        fps = if (frame_time > 0) 1000 / @as(f64, @floatFromInt(frame_time)) else 0;
+        //std.debug.print("fps: {d}\n", .{fps});
         if (FRAME_DELAY > frame_time) c.SDL_Delay(FRAME_DELAY - frame_time);
     }
 }

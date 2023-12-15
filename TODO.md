@@ -9,6 +9,7 @@
 
 ## GRAPHICAL STUFF:
 
+- [ ] Fix cam movement
 - [ ] Implement DeltaTime stuff to enable variable fps in-game
 - [ ] Maybe background image/gif for scene
 - [ ] Build in some sort of UI

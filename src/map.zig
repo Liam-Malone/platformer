@@ -7,6 +7,7 @@ const Allocator = std.mem.Allocator;
 pub const TileID = enum(u8) {
     Wall,
     Floor,
+    SpawnPoint,
 };
 
 pub const Tilemap = struct {
@@ -29,11 +30,17 @@ pub const Tilemap = struct {
                 .collides = switch (@as(TileID, @enumFromInt(id))) {
                     .Floor => true,
                     .Wall => false,
+                    .SpawnPoint => false,
                 },
             };
         }
         pub fn update_id(self: *Tile, id: u8) void {
             self.id = @enumFromInt(id);
+            self.collides = switch (@as(TileID, @enumFromInt(id))) {
+                .Floor => true,
+                .Wall => false,
+                .SpawnPoint => false,
+            };
         }
     };
     map: [][]Tile,
@@ -84,7 +91,7 @@ pub const Tilemap = struct {
     fn read_from_file(allocator: Allocator, path: []const u8, tile_w: i32, tile_h: i32) ![][]Tile {
         var map = std.ArrayList([]Tile).init(allocator);
         const file = try std.fs.cwd().openFile(path, .{});
-        const buf = try allocator.alloc(u8, 40000);
+        const buf = try allocator.alloc(u8, 80000);
         _ = try file.reader().readAll(buf);
         defer allocator.free(buf);
 
@@ -103,8 +110,12 @@ pub const Tilemap = struct {
                     }
                 }
             }
-            try map.append(try row.toOwnedSlice());
-            y += 1;
+            if (row.items.len > 10) {
+                try map.append(try row.toOwnedSlice());
+                y += 1;
+            } else {
+                row.clearAndFree();
+            }
         }
 
         return map.toOwnedSlice();
