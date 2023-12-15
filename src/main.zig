@@ -580,6 +580,7 @@ pub fn main() !void {
         }
 
         c.SDL_RenderPresent(renderer);
+
         frame_time = c.SDL_GetTicks() - frame_start;
         if (frame_avg_idx == FRAME_AVG_COUNT) {
             frame_avg_idx = 0;
@@ -588,6 +589,7 @@ pub fn main() !void {
             frame_avg[frame_avg_idx] = if (frame_time > 0) 1000 / frame_time else 0;
             frame_avg_idx += 1;
         }
+
         if (FRAME_DELAY > frame_time) c.SDL_Delay(FRAME_DELAY - frame_time);
     }
 }
