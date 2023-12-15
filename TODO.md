@@ -5,6 +5,7 @@
 - [ ] Random objects.
 - [x] Read map from file
 - [ ] Speed up map writing eventually (if needed)
+- [ ] Enable scrolling around map in edit mode
 
 ## GRAPHICAL STUFF:
 
