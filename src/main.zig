@@ -236,6 +236,8 @@ pub fn main() !void {
     const args = try std.process.argsAlloc(alloc);
     defer std.process.argsFree(alloc, args);
 
+    const map_path = if (args.len > 1) args[1] else "assets/maps/new_map.map";
+
     var player_tex: ?*c.SDL_Texture = c.IMG_LoadTexture(renderer, "assets/textures/player.png");
     defer c.SDL_DestroyTexture(player_tex);
     var player = Player{};
@@ -246,7 +248,7 @@ pub fn main() !void {
         SCREEN_HEIGHT,
         TILE_WIDTH,
         TILE_HEIGHT,
-        "assets/maps/new_map.map",
+        map_path,
     );
 
     const floor = c.IMG_LoadTexture(renderer, "assets/textures/floor.png");
