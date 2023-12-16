@@ -100,7 +100,7 @@ const Music = struct {
 const Player = struct {
     x: i32 = (SCREEN_WIDTH / 2) - 80,
     y: i32 = (SCREEN_HEIGHT / 2) - 80,
-    w: c_int = 36,
+    w: c_int = 48,
     h: c_int = 64,
     dx: i32 = 0,
     dy: i32 = 0,
@@ -265,7 +265,7 @@ pub fn main() !void {
 
     const map_path = if (args.len > 1) args[1] else "assets/maps/new_map.map";
 
-    var player_tex: ?*c.SDL_Texture = c.IMG_LoadTexture(renderer, "assets/textures/player.png");
+    var player_tex: ?*c.SDL_Texture = c.IMG_LoadTexture(renderer, "assets/sprites/new_char.png");
     defer c.SDL_DestroyTexture(player_tex);
     var player = Player{};
 
@@ -327,6 +327,7 @@ pub fn main() !void {
                     },
                     ' ' => player.dy = -20,
                     'e' => map_edit_enabled = !map_edit_enabled,
+                    'r' => player_spawned = false,
                     '0' => tile_id_selected = 0,
                     '1' => tile_id_selected = 1,
                     '2' => tile_id_selected = 2,
@@ -541,8 +542,8 @@ pub fn main() !void {
                 &c.SDL_Rect{
                     .x = 0,
                     .y = 0,
-                    .w = 18,
-                    .h = 32,
+                    .w = 24,
+                    .h = 31,
                 },
                 &c.SDL_Rect{
                     .x = @intCast(player.x - camera.x),
