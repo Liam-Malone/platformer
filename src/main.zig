@@ -196,7 +196,7 @@ fn fps(avg_arr: []u32) u32 {
     return frames / @as(u32, @intCast(avg_arr.len));
 }
 
-fn place_at_pos(x: u32, y: u32, tilemap: *map.Tilemap, id: u8) void {
+fn place_at_pos(x: u32, y: u32, tilemap: *map.Tilemap, id: map.TileID) void {
     tilemap.edit_tile(id, x / (TILE_WIDTH), y / (TILE_HEIGHT));
 }
 
@@ -284,6 +284,8 @@ pub fn main() !void {
     defer c.SDL_DestroyTexture(wall);
     const spawn_point = c.IMG_LoadTexture(renderer, "assets/textures/spawn_point.png");
     defer c.SDL_DestroyTexture(spawn_point);
+    const blue_portal = c.IMG_LoadTexture(renderer, "assets/textures/portal.png");
+    defer c.SDL_DestroyTexture(blue_portal);
 
     var camera = Camera{};
 
@@ -297,7 +299,7 @@ pub fn main() !void {
     var map_edit_enabled: bool = false;
 
     var left_mouse_is_down: bool = false;
-    var tile_id_selected: u8 = 0;
+    var tile_id_selected: map.TileID = @enumFromInt(0);
 
     var debug_view = false;
     var quit = false;
@@ -328,10 +330,10 @@ pub fn main() !void {
                     ' ' => player.dy = -20,
                     'e' => map_edit_enabled = !map_edit_enabled,
                     'r' => player_spawned = false,
-                    '0' => tile_id_selected = 0,
-                    '1' => tile_id_selected = 1,
-                    '2' => tile_id_selected = 2,
-                    //'3' => tile_id_selected = 3,
+                    '0' => tile_id_selected = @enumFromInt(0),
+                    '1' => tile_id_selected = @enumFromInt(1),
+                    '2' => tile_id_selected = @enumFromInt(2),
+                    '3' => tile_id_selected = @enumFromInt(3),
                     c.SDLK_F3 => debug_view = !debug_view,
                     else => {},
                 },
@@ -427,32 +429,57 @@ pub fn main() !void {
             for (row) |tile| {
                 switch (tile.collides) {
                     true => {
-                        if (collide(&c.SDL_Rect{
-                            .x = player.x,
-                            .y = player.y + player.dy,
-                            .w = player.w,
-                            .h = player.h,
-                        }, &c.SDL_Rect{
-                            .x = tile.x,
-                            .y = tile.y,
-                            .w = tile.w,
-                            .h = tile.h,
-                        })) {
-                            player.y += @divFloor(player.dy, 2) * -1;
-                            player.dy = @divFloor(player.dy, 2);
-                        }
-                        if (collide(&c.SDL_Rect{
-                            .x = player.x + player.dx,
-                            .y = player.y,
-                            .w = player.w,
-                            .h = player.h,
-                        }, &c.SDL_Rect{
-                            .x = tile.x,
-                            .y = tile.y,
-                            .w = tile.w,
-                            .h = tile.h,
-                        })) {
-                            player.x -= @divFloor(player.dx, 2);
+                        switch (tile.id) {
+                            .BluePortal => {
+                                for (tmap.portals) |p| {
+                                    if (collide(&c.SDL_Rect{
+                                        .x = player.x + player.dx,
+                                        .y = player.y + player.dy,
+                                        .w = player.w,
+                                        .h = player.h,
+                                    }, &c.SDL_Rect{
+                                        .x = p.x,
+                                        .y = p.y,
+                                        .w = p.w,
+                                        .h = p.h,
+                                    })) {
+                                        if (p.link) |endpoint| {
+                                            player.x = endpoint.x;
+                                            player.y = endpoint.y;
+                                        }
+                                    }
+                                }
+                            },
+                            .Floor => {
+                                if (collide(&c.SDL_Rect{
+                                    .x = player.x,
+                                    .y = player.y + player.dy,
+                                    .w = player.w,
+                                    .h = player.h,
+                                }, &c.SDL_Rect{
+                                    .x = tile.x,
+                                    .y = tile.y,
+                                    .w = tile.w,
+                                    .h = tile.h,
+                                })) {
+                                    player.y += @divFloor(player.dy, 2) * -1;
+                                    player.dy = @divFloor(player.dy, 2);
+                                }
+                                if (collide(&c.SDL_Rect{
+                                    .x = player.x + player.dx,
+                                    .y = player.y,
+                                    .w = player.w,
+                                    .h = player.h,
+                                }, &c.SDL_Rect{
+                                    .x = tile.x,
+                                    .y = tile.y,
+                                    .w = tile.w,
+                                    .h = tile.h,
+                                })) {
+                                    player.x -= @divFloor(player.dx, 2);
+                                }
+                            },
+                            else => {},
                         }
                     },
                     false => {},
@@ -501,6 +528,9 @@ pub fn main() !void {
                         },
                         .SpawnPoint => {
                             map_tex_used = spawn_point;
+                        },
+                        .BluePortal => {
+                            map_tex_used = blue_portal;
                         },
                     }
                     _ = c.SDL_RenderCopy(

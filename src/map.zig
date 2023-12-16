@@ -8,6 +8,16 @@ pub const TileID = enum(u8) {
     Wall,
     Floor,
     SpawnPoint,
+    BluePortal,
+};
+
+pub const Portal = struct {
+    id: TileID,
+    x: i32,
+    y: i32,
+    w: i32,
+    h: i32,
+    link: ?*Portal, // idea is same id == linked, no link = no tp
 };
 
 pub const Tilemap = struct {
@@ -31,19 +41,22 @@ pub const Tilemap = struct {
                     .Floor => true,
                     .Wall => false,
                     .SpawnPoint => false,
+                    .BluePortal => true,
                 },
             };
         }
-        pub fn update_id(self: *Tile, id: u8) void {
-            self.id = @enumFromInt(id);
-            self.collides = switch (@as(TileID, @enumFromInt(id))) {
+        pub fn update_id(self: *Tile, id: TileID) void {
+            self.id = id;
+            self.collides = switch (id) {
                 .Floor => true,
                 .Wall => false,
                 .SpawnPoint => false,
+                .BluePortal => true,
             };
         }
     };
     map: [][]Tile,
+    portals: []Portal,
     cur: []const u8,
 
     // for now create new tilemap, later load one in
@@ -57,9 +70,38 @@ pub const Tilemap = struct {
             map = read_from_file(allocator, path, tile_w, tile_h) catch try build_map(allocator, @intCast(tiles_across), @intCast(tiles_down), tile_w, tile_h);
         }
 
+        var portals = std.ArrayList(Portal).init(allocator);
+        for (map) |row| {
+            for (row) |tile| {
+                if (tile.id == .BluePortal) {
+                    if (portals.items.len == 0) {
+                        try portals.append(Portal{
+                            .id = tile.id,
+                            .x = tile.x,
+                            .y = tile.y,
+                            .w = tile.w,
+                            .h = tile.h,
+                            .link = null,
+                        });
+                    } else {
+                        try portals.append(Portal{
+                            .id = tile.id,
+                            .x = tile.x,
+                            .y = tile.y,
+                            .w = tile.w,
+                            .h = tile.h,
+                            .link = &portals.items[0],
+                        });
+                        portals.items[0].link = &portals.items[1];
+                    }
+                }
+            }
+        }
+
         return Tilemap{
             .map = map,
             .cur = path,
+            .portals = try portals.toOwnedSlice(),
         };
     }
 
@@ -141,7 +183,7 @@ pub const Tilemap = struct {
         try export_to_file(self, allocator, self.cur);
     }
 
-    pub fn edit_tile(self: *Tilemap, id: u8, x: u32, y: u32) void {
+    pub fn edit_tile(self: *Tilemap, id: TileID, x: u32, y: u32) void {
         if (y >= self.map.len or x >= self.map[0].len) return;
         self.map[y][x].update_id(id);
     }
