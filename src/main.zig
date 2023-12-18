@@ -250,6 +250,10 @@ pub fn main() !void {
 
     var music: ?Music = Music.init("assets/music/8_Bit_Nostalgia.mp3");
     defer if (music != null) music.?.deinit();
+    if (music != null) {
+        music.?.play();
+        music.?.toggle_pause();
+    }
 
     defer c.SDL_Quit();
     defer c.TTF_Quit();
