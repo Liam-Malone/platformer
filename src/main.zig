@@ -301,6 +301,9 @@ pub fn main() !void {
     var left_mouse_is_down: bool = false;
     var tile_id_selected: map.TileID = @enumFromInt(0);
 
+    var prev_time: i64 = std.time.milliTimestamp();
+    var source_offset: c_int = 0;
+
     var debug_view = false;
     var quit = false;
 
@@ -566,11 +569,19 @@ pub fn main() !void {
         }
 
         if (player_tex) |tex| {
+            if (player.dx != 0) {
+                const new_time = std.time.milliTimestamp();
+                if (new_time - prev_time > 200) {
+                    source_offset = if (source_offset == 0) 32 else 0;
+                    prev_time = new_time;
+                }
+            } else source_offset = 0;
+            const flip: c_uint = if (player.dx < 0) c.SDL_FLIP_HORIZONTAL else c.SDL_FLIP_NONE;
             _ = c.SDL_RenderCopyEx(
                 renderer,
                 tex,
                 &c.SDL_Rect{
-                    .x = 0,
+                    .x = source_offset,
                     .y = 0,
                     .w = 24,
                     .h = 31,
@@ -583,7 +594,7 @@ pub fn main() !void {
                 },
                 0,
                 null,
-                c.SDL_FLIP_NONE,
+                flip,
             );
             set_render_color(renderer, Color.white);
             if (debug_view) {
