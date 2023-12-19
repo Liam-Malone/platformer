@@ -151,8 +151,8 @@ const FPS = 60;
 const FRAME_DELAY = 1000 / FPS;
 const FRAME_AVG_COUNT = 10;
 const BACKGROUND_COLOR = Color.dark_gray;
-const SCREEN_WIDTH = 1200;
-const SCREEN_HEIGHT = 900;
+const SCREEN_WIDTH = 1920;
+const SCREEN_HEIGHT = 1080;
 const TILE_WIDTH = 32;
 const TILE_HEIGHT = 32;
 // END CONSTANTS
