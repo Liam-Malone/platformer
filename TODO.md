@@ -2,25 +2,34 @@
 
 ## MAP STUFF:
 
-- [ ] Random objects.
 - [x] Read map from file
+- [x] Random objects.
+- [x] Enable scrolling around map in edit mode
 - [ ] Speed up map writing eventually (if needed)
-- [ ] Enable scrolling around map in edit mode
 
 ## GRAPHICAL STUFF:
 
-- [ ] Fix cam movement
-- [ ] Implement DeltaTime stuff to enable variable fps in-game
+- [x] Fix cam movement
+- [x] Compose actual spritesheet for rendering player/potential enemies
+- [-] Pull offsets from texmap instead of wholly new files
 - [ ] Maybe background image/gif for scene
 - [ ] Build in some sort of UI
-- [ ] Compose actual spritesheet for rendering player/potential enemies
-- [ ] Pull offsets from texmap instead of wholly new files
+- [ ] Implement DeltaTime stuff to enable variable fps in-game
 
 ## GAMEPLAY STUFF:
 
-- [ ] Fix landing on platforms
-    - [ ] Should prolly redo whole collision system...
-- [ ] Add collision with walls
+- [x] Fix landing on platforms
+- [x] Add collision with walls
+- [ ] Let player slide
+    - [ ] On floor 
+    - [ ] Down walls
+- [ ] Keep track of player state
+    - [ ] Jumping
+    - [ ] Falling
+    - [ ] Running
+    - [ ] Standing
+    - [ ] Sliding (wall/floor? both?)
+- [ ] Jump input buffering
 - [ ] Interact with movable objects
 - [ ] Maybe some tools?
 - [ ] Add locking and unlocking of sections??
