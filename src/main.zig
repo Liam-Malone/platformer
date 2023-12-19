@@ -171,7 +171,6 @@ fn direct_cam_toward_player(player: *Player, cam: *Camera, tmap: *map.Tilemap) v
 
     const max_x = @as(i32, @intCast(tmap.map[0][tmap.map[0].len - 1].x + TILE_WIDTH)) - cam.w;
     const max_y = @as(i32, @intCast(tmap.map[tmap.map.len - 1][0].y + TILE_HEIGHT)) - cam.h;
-    //const max_y = @as(i32, @intCast(tmap.map.len * TILE_HEIGHT)) - cam.h;
 
     const dx = @divFloor((player.x + player.w) - (cam.x + xmid), 10);
     const dy = @divFloor((player.y + player.h) - (cam.y + ymid), 10);
@@ -281,6 +280,7 @@ pub fn main() !void {
         TILE_HEIGHT,
         map_path,
     );
+    var player_max_x = tmap.map[0][tmap.map[0].len - 1].x + TILE_WIDTH;
 
     const floor = c.IMG_LoadTexture(renderer, "assets/textures/floor.png");
     defer c.SDL_DestroyTexture(floor);
@@ -298,6 +298,7 @@ pub fn main() !void {
     var frame_time: u32 = undefined;
     var frame_avg = std.mem.zeroes([FRAME_AVG_COUNT]u32);
     var frame_avg_idx: usize = 0;
+    var portal_timeout: i64 = std.time.milliTimestamp();
 
     var map_tex_used: ?*c.SDL_Texture = null;
     var map_edit_enabled: bool = false;
@@ -396,67 +397,13 @@ pub fn main() !void {
         }
 
         for (tmap.map) |row| {
-            for (row) |tile| {
-                switch (tile.collides) {
-                    true => {
-                        if (collide(&c.SDL_Rect{
-                            .x = player.x,
-                            .y = player.y + player.dy,
-                            .w = player.w,
-                            .h = player.h,
-                        }, &c.SDL_Rect{
-                            .x = tile.x,
-                            .y = tile.y,
-                            .w = tile.w,
-                            .h = tile.h,
-                        })) {
-                            player.y += @divFloor(player.dy, 2) * -1;
-                            player.dy = @divFloor(player.dy, 2);
-                        }
-                        if (collide(&c.SDL_Rect{
-                            .x = player.x + player.dx,
-                            .y = player.y,
-                            .w = player.w,
-                            .h = player.h,
-                        }, &c.SDL_Rect{
-                            .x = tile.x,
-                            .y = tile.y,
-                            .w = tile.w,
-                            .h = tile.h,
-                        })) {
-                            player.x -= @divFloor(player.dx, 2);
-                        }
-                    },
-                    false => {},
-                }
-            }
-        }
-
-        for (tmap.map) |row| {
-            for (row) |tile| {
+            const startx: usize = if (player.x - player.w < 0 or player.x > player_max_x) 0 else @intCast(@divTrunc(player.x - player.w, TILE_WIDTH));
+            const endx: usize = if (player.x + player.w < 0 or player.x > player_max_x) @intCast(@divTrunc(player_max_x, TILE_WIDTH)) else @intCast(@divTrunc(player.x + player.w + TILE_WIDTH, TILE_WIDTH));
+            for (startx..endx) |i| {
+                const tile = row[i];
                 switch (tile.collides) {
                     true => {
                         switch (tile.id) {
-                            .BluePortal => {
-                                for (tmap.portals) |p| {
-                                    if (collide(&c.SDL_Rect{
-                                        .x = player.x + player.dx,
-                                        .y = player.y + player.dy,
-                                        .w = player.w,
-                                        .h = player.h,
-                                    }, &c.SDL_Rect{
-                                        .x = p.x,
-                                        .y = p.y,
-                                        .w = p.w,
-                                        .h = p.h,
-                                    })) {
-                                        if (p.link) |endpoint| {
-                                            player.x = endpoint.x;
-                                            player.y = endpoint.y;
-                                        }
-                                    }
-                                }
-                            },
                             .Floor => {
                                 if (collide(&c.SDL_Rect{
                                     .x = player.x,
@@ -484,6 +431,33 @@ pub fn main() !void {
                                     .h = tile.h,
                                 })) {
                                     player.x -= @divFloor(player.dx, 2);
+                                }
+                            },
+                            .BluePortal => {
+                                if (std.time.milliTimestamp() - portal_timeout > 1000) {
+                                    for (tmap.portals) |p| {
+                                        if (collide(&c.SDL_Rect{
+                                            .x = player.x + player.dx,
+                                            .y = player.y + player.dy,
+                                            .w = player.w,
+                                            .h = player.h,
+                                        }, &c.SDL_Rect{
+                                            .x = p.x,
+                                            .y = p.y,
+                                            .w = p.w,
+                                            .h = p.h,
+                                        })) {
+                                            if (p.link) |endpoint| {
+                                                std.debug.print("tp to ({d}, {d})\n", .{ endpoint.x, endpoint.y });
+                                                player.dy = 0;
+                                                player.x = endpoint.x + player.w;
+                                                player.y = endpoint.y - 20;
+                                                portal_timeout = std.time.milliTimestamp();
+                                            } else {
+                                                std.debug.print("no endpoint to tp to :(\n", .{});
+                                            }
+                                        }
+                                    }
                                 }
                             },
                             else => {},
