@@ -511,6 +511,22 @@ pub fn main() !void {
                             map_tex_used = spawn_point;
                         },
                         .BluePortal => {
+                            _ = c.SDL_RenderCopy(
+                                renderer,
+                                wall,
+                                &c.SDL_Rect{
+                                    .x = 0,
+                                    .y = 0,
+                                    .w = 32,
+                                    .h = 32,
+                                },
+                                &c.SDL_Rect{
+                                    .x = @intCast(x_to_cam),
+                                    .y = @intCast(y_to_cam),
+                                    .w = tile.w,
+                                    .h = tile.h,
+                                },
+                            );
                             map_tex_used = blue_portal;
                         },
                     }
