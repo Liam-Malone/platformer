@@ -1,6 +1,6 @@
 # SIMPLE PLATFORMER
 
-making a simple platformer game, I wanna try out various kinds of game dev here
+![demo gif](./assets/portal-demo.gif)
 
 I'm once again using SDL2 as the graphics API and writing this game in Zig.
 
