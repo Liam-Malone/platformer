@@ -59,7 +59,6 @@ pub const Tilemap = struct {
     portals: []Portal,
     cur: []const u8,
 
-    // for now create new tilemap, later load one in
     pub fn init(allocator: Allocator, w: u32, h: u32, tile_w: i32, tile_h: i32, path: []const u8) !Tilemap {
         const tiles_across = w / @as(u32, @intCast(tile_w));
         const tiles_down = h / @as(u32, @intCast(tile_h));
