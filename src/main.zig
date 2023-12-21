@@ -104,6 +104,7 @@ const Player = struct {
     h: c_int = 64,
     dx: i32 = 0,
     dy: i32 = 0,
+    jump_count: u8 = 0,
 };
 
 const SoundEffect = struct {
@@ -135,7 +136,7 @@ const SoundEffect = struct {
 const Vec2 = struct {
     x: i32,
     y: i32,
-    mag: i32,
+    mag: i32 = 0,
 
     fn normal_vec(self: *Vec2) Vec2 {
         return Vec2{
@@ -155,6 +156,23 @@ const SCREEN_WIDTH = 1920;
 const SCREEN_HEIGHT = 1080;
 const TILE_WIDTH = 32;
 const TILE_HEIGHT = 32;
+
+// DRAW OFFSET CONSTANTS
+const FLOOR_X_OFFSET = 0;
+const FLOOR_Y_OFFSET = 0;
+const SURFACE_X_OFFSET = 32;
+const SURFACE_Y_OFFSET = 0;
+const WALL_X_OFFSET = 32 * 2;
+const WALL_Y_OFFSET = 0;
+const PORTAL_X_OFFSET = 0;
+const PORTAL_Y_OFFSET = 32;
+const SPAWNER_X_OFFSET = 32;
+const SPAWNER_Y_OFFSET = 32;
+const PLAYER_X_OFFSET = 0;
+const PLAYER_Y_OFFSET = 32 * 2;
+const FINISH_X_OFFSET = 32 * 2;
+const FINISH_Y_OFFSET = 32;
+
 // END CONSTANTS
 
 //BEGIN FUNCTIONS
@@ -268,8 +286,6 @@ pub fn main() !void {
 
     const map_path = if (args.len > 1) args[1] else "assets/maps/new_map.map";
 
-    var player_tex: ?*c.SDL_Texture = c.IMG_LoadTexture(renderer, "assets/sprites/new_char.png");
-    defer c.SDL_DestroyTexture(player_tex);
     var player = Player{};
 
     var tmap = try map.Tilemap.init(
@@ -281,17 +297,10 @@ pub fn main() !void {
         map_path,
     );
     var player_max_x = tmap.map[0][tmap.map[0].len - 1].x + TILE_WIDTH;
+    var player_max_y = tmap.map[tmap.map.len - 1][0].y + TILE_HEIGHT;
 
-    const floor = c.IMG_LoadTexture(renderer, "assets/textures/floor.png");
-    defer c.SDL_DestroyTexture(floor);
-    const floor_surface = c.IMG_LoadTexture(renderer, "assets/textures/floor_surface.png");
-    defer c.SDL_DestroyTexture(floor_surface);
-    const wall = c.IMG_LoadTexture(renderer, "assets/textures/wall.png");
-    defer c.SDL_DestroyTexture(wall);
-    const spawn_point = c.IMG_LoadTexture(renderer, "assets/textures/spawn_point.png");
-    defer c.SDL_DestroyTexture(spawn_point);
-    const blue_portal = c.IMG_LoadTexture(renderer, "assets/textures/portal.png");
-    defer c.SDL_DestroyTexture(blue_portal);
+    const texmap = c.IMG_LoadTexture(renderer, "assets/textures/texmap.png");
+    defer c.SDL_DestroyTexture(texmap);
 
     var camera = Camera{};
 
@@ -302,7 +311,7 @@ pub fn main() !void {
     var frame_avg_idx: usize = 0;
     var portal_timeout: i64 = std.time.milliTimestamp();
 
-    var map_tex_used: ?*c.SDL_Texture = null;
+    var draw_offset: Vec2 = Vec2{ .x = 0, .y = 0 };
     var map_edit_enabled: bool = false;
 
     var left_mouse_is_down: bool = false;
@@ -337,7 +346,19 @@ pub fn main() !void {
                             }
                         }
                     },
-                    ' ' => player.dy = -20,
+                    ' ' => {
+                        switch (player.jump_count) {
+                            0 => {
+                                player.dy = -20;
+                                player.jump_count += 1;
+                            },
+                            1 => {
+                                player.dy = -15;
+                                player.jump_count += 1;
+                            },
+                            else => {},
+                        }
+                    },
                     'e' => map_edit_enabled = !map_edit_enabled,
                     'r' => player_spawned = false,
                     '0' => tile_id_selected = @enumFromInt(0),
@@ -345,6 +366,7 @@ pub fn main() !void {
                     '2' => tile_id_selected = @enumFromInt(2),
                     '3' => tile_id_selected = @enumFromInt(3),
                     '4' => tile_id_selected = @enumFromInt(4),
+                    '5' => tile_id_selected = @enumFromInt(5),
                     c.SDLK_F3 => debug_view = !debug_view,
                     else => {},
                 },
@@ -399,11 +421,14 @@ pub fn main() !void {
             }
         }
 
-        for (tmap.map) |row| {
-            const startx: usize = if (player.x - player.w < 0 or player.x > player_max_x) 0 else @intCast(@divTrunc(player.x - player.w, TILE_WIDTH));
-            const endx: usize = if (player.x + player.w < 0 or player.x > player_max_x) @intCast(@divTrunc(player_max_x, TILE_WIDTH)) else @intCast(@divTrunc(player.x + player.w + TILE_WIDTH, TILE_WIDTH));
-            for (startx..endx) |i| {
-                const tile = row[i];
+        const starty: usize = if (player.y - player.h + player.dy < 0 or player.y > player_max_y) 0 else @intCast(@divTrunc(player.y - player.h + player.dy, TILE_HEIGHT));
+        const endy: usize = if (player.y + player.h + player.dy < 0 or player.y > player_max_y) @intCast(@divTrunc(player_max_y, TILE_HEIGHT)) else @intCast(@divTrunc(player.y + player.h + player.dy + TILE_HEIGHT, TILE_HEIGHT));
+        for (starty..endy) |i| {
+            const row = tmap.map[i];
+            const startx: usize = if (player.x - player.w + player.dx < 0 or player.x > player_max_x) 0 else @intCast(@divTrunc(player.x - player.w + player.dx, TILE_WIDTH));
+            const endx: usize = if (player.x + player.w + player.dx < 0 or player.x > player_max_x) @intCast(@divTrunc(player_max_x + player.dx, TILE_WIDTH)) else @intCast(@divTrunc(player.x + player.w + player.dx + TILE_WIDTH, TILE_WIDTH));
+            for (startx..endx) |j| {
+                const tile = row[j];
                 switch (tile.collides) {
                     true => {
                         switch (tile.id) {
@@ -421,6 +446,7 @@ pub fn main() !void {
                                 })) {
                                     player.y += @divFloor(player.dy, 2) * -1;
                                     player.dy = @divFloor(player.dy, 2);
+                                    player.jump_count = 0;
                                 }
                                 if (collide(&c.SDL_Rect{
                                     .x = player.x + player.dx,
@@ -434,6 +460,7 @@ pub fn main() !void {
                                     .h = tile.h,
                                 })) {
                                     player.x -= @divFloor(player.dx, 2);
+                                    player.jump_count = 1;
                                 }
                             },
                             .BluePortal => {
@@ -462,6 +489,9 @@ pub fn main() !void {
                                         }
                                     }
                                 }
+                            },
+                            .FinishLine => {
+                                std.debug.print("player completed level\n", .{});
                             },
                             else => {},
                         }
@@ -505,21 +535,26 @@ pub fn main() !void {
                 if (x_to_cam + TILE_WIDTH > 0 and x_to_cam < camera.x + camera.w and y_to_cam + TILE_HEIGHT > 0 and y_to_cam < camera.y + camera.h) {
                     switch (tile.id) {
                         .Wall => {
-                            map_tex_used = wall;
+                            draw_offset.x = WALL_X_OFFSET;
+                            draw_offset.y = WALL_Y_OFFSET;
                         },
                         .Floor => {
-                            map_tex_used = floor;
+                            draw_offset.x = FLOOR_X_OFFSET;
+                            draw_offset.y = FLOOR_Y_OFFSET;
                         },
                         .SpawnPoint => {
-                            map_tex_used = spawn_point;
+                            draw_offset.x = SPAWNER_X_OFFSET;
+                            draw_offset.y = SPAWNER_Y_OFFSET;
                         },
                         .BluePortal => {
+                            draw_offset.x = WALL_X_OFFSET;
+                            draw_offset.y = WALL_Y_OFFSET;
                             _ = c.SDL_RenderCopy(
                                 renderer,
-                                wall,
+                                texmap,
                                 &c.SDL_Rect{
-                                    .x = 0,
-                                    .y = 0,
+                                    .x = draw_offset.x,
+                                    .y = draw_offset.y,
                                     .w = 32,
                                     .h = 32,
                                 },
@@ -530,18 +565,42 @@ pub fn main() !void {
                                     .h = tile.h,
                                 },
                             );
-                            map_tex_used = blue_portal;
+                            draw_offset.x = PORTAL_X_OFFSET;
+                            draw_offset.y = PORTAL_Y_OFFSET;
+                        },
+                        .FinishLine => {
+                            draw_offset.x = WALL_X_OFFSET;
+                            draw_offset.y = WALL_Y_OFFSET;
+                            _ = c.SDL_RenderCopy(
+                                renderer,
+                                texmap,
+                                &c.SDL_Rect{
+                                    .x = draw_offset.x,
+                                    .y = draw_offset.y,
+                                    .w = 32,
+                                    .h = 32,
+                                },
+                                &c.SDL_Rect{
+                                    .x = @intCast(x_to_cam),
+                                    .y = @intCast(y_to_cam),
+                                    .w = tile.w,
+                                    .h = tile.h,
+                                },
+                            );
+                            draw_offset.x = FINISH_X_OFFSET;
+                            draw_offset.y = FINISH_Y_OFFSET;
                         },
                         .FloorSurface => {
-                            map_tex_used = floor_surface;
+                            draw_offset.x = SURFACE_X_OFFSET;
+                            draw_offset.y = SURFACE_Y_OFFSET;
                         },
                     }
                     _ = c.SDL_RenderCopy(
                         renderer,
-                        map_tex_used,
+                        texmap,
                         &c.SDL_Rect{
-                            .x = 0,
-                            .y = 0,
+                            .x = draw_offset.x,
+                            .y = draw_offset.y,
                             .w = 32,
                             .h = 32,
                         },
@@ -568,53 +627,40 @@ pub fn main() !void {
             }
         }
 
-        if (player_tex) |tex| {
-            if (player.dx != 0) {
-                const new_time = std.time.milliTimestamp();
-                if (new_time - prev_time > 200) {
-                    source_offset = if (source_offset == 0) 32 else 0;
-                    prev_time = new_time;
-                }
-            } else source_offset = 0;
-            const flip: c_uint = if (player.dx < 0) c.SDL_FLIP_HORIZONTAL else c.SDL_FLIP_NONE;
-            _ = c.SDL_RenderCopyEx(
-                renderer,
-                tex,
-                &c.SDL_Rect{
-                    .x = source_offset,
-                    .y = 0,
-                    .w = 24,
-                    .h = 31,
-                },
-                &c.SDL_Rect{
-                    .x = @intCast(player.x - camera.x),
-                    .y = @intCast(player.y - camera.y),
-                    .w = player.w,
-                    .h = player.h,
-                },
-                0,
-                null,
-                flip,
-            );
-            set_render_color(renderer, Color.white);
-            if (debug_view) {
-                _ = c.SDL_RenderDrawRect(
-                    renderer,
-                    &c.SDL_Rect{
-                        .x = @intCast(player.x - camera.x),
-                        .y = @intCast(player.y - camera.y),
-                        .w = player.w,
-                        .h = player.h,
-                    },
-                );
+        if (player.dx != 0) {
+            const new_time = std.time.milliTimestamp();
+            if (new_time - prev_time > 200) {
+                source_offset = if (source_offset == 0) 32 else 0;
+                prev_time = new_time;
             }
-        } else {
-            set_render_color(renderer, Color.white);
+        } else source_offset = 0;
+        const flip: c_uint = if (player.dx < 0) c.SDL_FLIP_HORIZONTAL else c.SDL_FLIP_NONE;
+        _ = c.SDL_RenderCopyEx(
+            renderer,
+            texmap,
+            &c.SDL_Rect{
+                .x = PLAYER_X_OFFSET + source_offset,
+                .y = PLAYER_Y_OFFSET,
+                .w = 24,
+                .h = 31,
+            },
+            &c.SDL_Rect{
+                .x = @intCast(player.x - camera.x),
+                .y = @intCast(player.y - camera.y),
+                .w = player.w,
+                .h = player.h,
+            },
+            0,
+            null,
+            flip,
+        );
+        set_render_color(renderer, Color.white);
+        if (debug_view) {
             _ = c.SDL_RenderDrawRect(
                 renderer,
                 &c.SDL_Rect{
-                    .x = @intCast(player.x),
-                    .y = @intCast(player.y),
+                    .x = @intCast(player.x - camera.x),
+                    .y = @intCast(player.y - camera.y),
                     .w = player.w,
                     .h = player.h,
                 },
