@@ -11,7 +11,7 @@
 
 - [x] Fix cam movement
 - [x] Compose actual spritesheet for rendering player/potential enemies
-- [-] Pull offsets from texmap instead of wholly new files
+- [x] Pull offsets from texmap instead of wholly new files
 - [ ] Maybe background image/gif for scene
 - [ ] Build in some sort of UI
 - [ ] Implement DeltaTime stuff to enable variable fps in-game
@@ -23,12 +23,6 @@
 - [ ] Let player slide
     - [ ] On floor 
     - [ ] Down walls
-- [ ] Keep track of player state
-    - [ ] Jumping
-    - [ ] Falling
-    - [ ] Running
-    - [ ] Standing
-    - [ ] Sliding (wall/floor? both?)
 - [ ] Jump input buffering
 - [ ] Interact with movable objects
 - [ ] Maybe some tools?
