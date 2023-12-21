@@ -9,6 +9,7 @@ pub const TileID = enum(u8) {
     Floor,
     SpawnPoint,
     BluePortal,
+    FloorSurface,
 };
 
 pub const Portal = struct {
@@ -42,6 +43,7 @@ pub const Tilemap = struct {
                     .Wall => false,
                     .SpawnPoint => false,
                     .BluePortal => true,
+                    .FloorSurface => true,
                 },
             };
         }
@@ -52,6 +54,7 @@ pub const Tilemap = struct {
                 .Wall => false,
                 .SpawnPoint => false,
                 .BluePortal => true,
+                .FloorSurface => true,
             };
         }
     };

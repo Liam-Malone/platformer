@@ -284,6 +284,8 @@ pub fn main() !void {
 
     const floor = c.IMG_LoadTexture(renderer, "assets/textures/floor.png");
     defer c.SDL_DestroyTexture(floor);
+    const floor_surface = c.IMG_LoadTexture(renderer, "assets/textures/floor_surface.png");
+    defer c.SDL_DestroyTexture(floor_surface);
     const wall = c.IMG_LoadTexture(renderer, "assets/textures/wall.png");
     defer c.SDL_DestroyTexture(wall);
     const spawn_point = c.IMG_LoadTexture(renderer, "assets/textures/spawn_point.png");
@@ -342,6 +344,7 @@ pub fn main() !void {
                     '1' => tile_id_selected = @enumFromInt(1),
                     '2' => tile_id_selected = @enumFromInt(2),
                     '3' => tile_id_selected = @enumFromInt(3),
+                    '4' => tile_id_selected = @enumFromInt(4),
                     c.SDLK_F3 => debug_view = !debug_view,
                     else => {},
                 },
@@ -404,7 +407,7 @@ pub fn main() !void {
                 switch (tile.collides) {
                     true => {
                         switch (tile.id) {
-                            .Floor => {
+                            .Floor, .FloorSurface => {
                                 if (collide(&c.SDL_Rect{
                                     .x = player.x,
                                     .y = player.y + player.dy,
@@ -529,6 +532,9 @@ pub fn main() !void {
                             );
                             map_tex_used = blue_portal;
                         },
+                        .FloorSurface => {
+                            map_tex_used = floor_surface;
+                        },
                     }
                     _ = c.SDL_RenderCopy(
                         renderer,
@@ -619,7 +625,7 @@ pub fn main() !void {
 
         if (frame_avg_idx == FRAME_AVG_COUNT) {
             frame_avg_idx = 0;
-            std.debug.print("fps: {d}\n", .{fps(&frame_avg)});
+            //std.debug.print("fps: {d}\n", .{fps(&frame_avg)});
         } else {
             frame_avg[frame_avg_idx] = if (frame_time > 0) 1000 / frame_time else 0;
             frame_avg_idx += 1;
