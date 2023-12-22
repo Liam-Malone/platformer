@@ -1,4 +1,3 @@
-const c = @import("c.zig");
 const main = @import("main.zig");
 const std = @import("std");
 

@@ -1,6 +1,6 @@
-const std = @import("std");
 const map = @import("map.zig");
-const c = @import("c.zig");
+const sdl = @import("sdl.zig");
+const std = @import("std");
 
 // BEGIN ENUMS
 pub const Color = enum(u32) {
@@ -12,14 +12,14 @@ pub const Color = enum(u32) {
     green = 0x00AA00FF,
     void = 0xFF00FFFF,
 
-    pub fn make_sdl_color(col: Color) c.SDL_Color {
+    pub fn make_sdl_color(col: Color) sdl.SDL_Color {
         var color = @intFromEnum(col);
         const r: u8 = @truncate((color >> (3 * 8)) & 0xFF);
         const g: u8 = @truncate((color >> (2 * 8)) & 0xFF);
         const b: u8 = @truncate((color >> (1 * 8)) & 0xFF);
         const a: u8 = @truncate((color >> (0 * 8)) & 0xFF);
 
-        return c.SDL_Color{
+        return sdl.SDL_Color{
             .r = r,
             .g = g,
             .b = b,
@@ -40,7 +40,7 @@ const Camera = struct {
 };
 
 const Music = struct {
-    music: *c.Mix_Music,
+    music: *sdl.Mix_Music,
     playing: bool = false,
     paused: bool = false,
 
@@ -55,21 +55,21 @@ const Music = struct {
         return null;
     }
     pub fn deinit(self: *Music) void {
-        c.Mix_FreeMusic(self.music);
+        sdl.Mix_FreeMusic(self.music);
     }
 
-    fn load(path: [*c]const u8) ?*c.Mix_Music {
-        return c.Mix_LoadMUS(path);
+    fn load(path: [*c]const u8) ?*sdl.Mix_Music {
+        return sdl.Mix_LoadMUS(path);
     }
     pub fn play(self: *Music) void {
-        switch (c.Mix_PlayingMusic() == 0) {
+        switch (sdl.Mix_PlayingMusic() == 0) {
             true => {
-                _ = c.Mix_PlayMusic(self.music, -1);
+                _ = sdl.Mix_PlayMusic(self.music, -1);
                 self.playing = true;
                 return;
             },
             false => {
-                if (c.Mix_PausedMusic() == 1) _ = c.Mix_ResumeMusic();
+                if (sdl.Mix_PausedMusic() == 1) _ = sdl.Mix_ResumeMusic();
                 self.paused = false;
                 return;
             },
@@ -79,10 +79,10 @@ const Music = struct {
         switch (self.playing) {
             true => {
                 if (self.paused) {
-                    _ = c.Mix_ResumeMusic();
+                    _ = sdl.Mix_ResumeMusic();
                     self.paused = false;
                 } else {
-                    _ = c.Mix_PauseMusic();
+                    _ = sdl.Mix_PauseMusic();
                     self.paused = true;
                 }
                 return;
@@ -93,7 +93,7 @@ const Music = struct {
         }
     }
     pub fn halt(self: *Music) void {
-        if (self.playing) _ = c.Mix_HaltMusic;
+        if (self.playing) _ = sdl.Mix_HaltMusic;
     }
 };
 
@@ -108,7 +108,7 @@ const Player = struct {
 };
 
 const SoundEffect = struct {
-    effect: ?*c.Mix_Chunk,
+    effect: ?*sdl.Mix_Chunk,
     timestamp: i64,
 
     pub fn init(path: []const u8) SoundEffect {
@@ -119,17 +119,17 @@ const SoundEffect = struct {
         };
     }
     pub fn deinit(self: *SoundEffect) void {
-        c.Mix_FreeChunk(self.effect);
+        sdl.Mix_FreeChunk(self.effect);
     }
-    fn load(path: [*c]const u8) ?*c.Mix_Chunk {
-        if (c.Mix_LoadWAV(path) == null) {
-            std.debug.print("failed:\n {s}\n", .{c.Mix_GetError()});
+    fn load(path: [*c]const u8) ?*sdl.Mix_Chunk {
+        if (sdl.Mix_LoadWAV(path) == null) {
+            std.debug.print("failed:\n {s}\n", .{sdl.Mix_GetError()});
         }
-        return c.Mix_LoadWAV(path);
+        return sdl.Mix_LoadWAV(path);
     }
 
     pub fn play(self: *SoundEffect) void {
-        _ = c.Mix_PlayChannel(-1, self.effect, 0);
+        _ = sdl.Mix_PlayChannel(-1, self.effect, 0);
     }
 };
 
@@ -176,8 +176,8 @@ const FINISH_Y_OFFSET = 32;
 // END CONSTANTS
 
 //BEGIN FUNCTIONS
-fn collide(rect_a: *const c.SDL_Rect, rect_b: *const c.SDL_Rect) bool {
-    return c.SDL_HasIntersection(rect_a, rect_b) != 0;
+fn collide(rect_a: *const sdl.SDL_Rect, rect_b: *const sdl.SDL_Rect) bool {
+    return sdl.SDL_HasIntersection(rect_a, rect_b) != 0;
 }
 
 fn direct_cam_toward_player(player: *Player, cam: *Camera, tmap: *map.Tilemap) void {
@@ -221,48 +221,48 @@ fn save(tm: *map.Tilemap, allocator: std.mem.Allocator) !void {
     try tm.save(allocator);
 }
 
-fn set_fullscreen(window: *c.SDL_Window, fullscreen_type: u32) void {
+fn set_fullscreen(window: *sdl.SDL_Window, fullscreen_type: u32) void {
     switch (fullscreen_type) {
         0 => {
-            _ = c.SDL_SetWindowFullscreen(window, 0);
+            _ = sdl.SDL_SetWindowFullscreen(window, 0);
         },
         1 => {
-            _ = c.SDL_SetWindowFullscreen(window, c.SDL_SCREEN_FULLSCREEN);
+            _ = sdl.SDL_SetWindowFullscreen(window, sdl.SDL_SCREEN_FULLSCREEN);
         },
         2 => {
-            _ = c.SDL_SetWindowFullscreen(window, c.SDL_SCREEN_FULLSCREEN_DESKTOP);
+            _ = sdl.SDL_SetWindowFullscreen(window, sdl.SDL_SCREEN_FULLSCREEN_DESKTOP);
         },
         else => {},
     }
 }
 
-fn set_render_color(renderer: *c.SDL_Renderer, color: Color) void {
+fn set_render_color(renderer: *sdl.SDL_Renderer, color: Color) void {
     const col = Color.make_sdl_color(color);
-    _ = c.SDL_SetRenderDrawColor(renderer, col.r, col.g, col.b, col.a);
+    _ = sdl.SDL_SetRenderDrawColor(renderer, col.r, col.g, col.b, col.a);
 }
 // END FUNCTIONS
 
 pub fn main() !void {
-    if (c.SDL_Init(c.SDL_INIT_VIDEO) < 0) {
-        c.SDL_Log("Unable to initialize SDL: {s}\n", c.SDL_GetError());
+    if (sdl.SDL_Init(sdl.SDL_INIT_VIDEO) < 0) {
+        sdl.SDL_Log("Unable to initialize SDL: {s}\n", sdl.SDL_GetError());
         return error.SDLInitializationFailed;
     }
 
-    if (c.TTF_Init() < 0) {
-        c.SDL_Log("Unable to initialize SDL_TTF: {s}\n", c.SDL_GetError());
+    if (sdl.TTF_Init() < 0) {
+        sdl.SDL_Log("Unable to initialize SDL_TTF: {s}\n", sdl.SDL_GetError());
         return error.SDLInitializationFailed;
     }
 
-    var window: *c.SDL_Window = c.SDL_CreateWindow("2d-Roguelike", c.SDL_WINDOWPOS_CENTERED, c.SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, 0) orelse {
-        c.SDL_Log("Unable to initialize SDL: {s}\n", c.SDL_GetError());
+    var window: *sdl.SDL_Window = sdl.SDL_CreateWindow("2d-Roguelike", sdl.SDL_WINDOWPOS_CENTERED, sdl.SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, 0) orelse {
+        sdl.SDL_Log("Unable to initialize SDL: {s}\n", sdl.SDL_GetError());
         return error.SDLInitializationFailed;
     };
-    var renderer: *c.SDL_Renderer = c.SDL_CreateRenderer(window, -1, c.SDL_RENDERER_ACCELERATED) orelse {
-        c.SDL_Log("Unable to initialize SDL: {s}\n", c.SDL_GetError());
+    var renderer: *sdl.SDL_Renderer = sdl.SDL_CreateRenderer(window, -1, sdl.SDL_RENDERER_ACCELERATED) orelse {
+        sdl.SDL_Log("Unable to initialize SDL: {s}\n", sdl.SDL_GetError());
         return error.SDLInitializationFailed;
     };
-    if (c.Mix_OpenAudio(44100, c.MIX_DEFAULT_FORMAT, 8, 2048) < 0) {
-        c.SDL_Log("SDL_mixer could not initialize! SDL_mixer Error: %s\n", c.Mix_GetError());
+    if (sdl.Mix_OpenAudio(44100, sdl.MIX_DEFAULT_FORMAT, 8, 2048) < 0) {
+        sdl.SDL_Log("SDL_mixer could not initialize! SDL_mixer Error: %s\n", sdl.Mix_GetError());
     }
 
     var music: ?Music = Music.init("assets/music/8_Bit_Nostalgia.mp3");
@@ -272,11 +272,11 @@ pub fn main() !void {
         music.?.toggle_pause();
     }
 
-    defer c.SDL_Quit();
-    defer c.TTF_Quit();
-    defer c.SDL_DestroyWindow(window);
-    defer c.SDL_DestroyRenderer(renderer);
-    defer c.Mix_Quit();
+    defer sdl.SDL_Quit();
+    defer sdl.TTF_Quit();
+    defer sdl.SDL_DestroyWindow(window);
+    defer sdl.SDL_DestroyRenderer(renderer);
+    defer sdl.Mix_Quit();
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     var alloc = gpa.allocator();
@@ -299,8 +299,8 @@ pub fn main() !void {
     var player_max_x = tmap.map[0][tmap.map[0].len - 1].x + TILE_WIDTH;
     var player_max_y = tmap.map[tmap.map.len - 1][0].y + TILE_HEIGHT;
 
-    const texmap = c.IMG_LoadTexture(renderer, "assets/textures/texmap.png");
-    defer c.SDL_DestroyTexture(texmap);
+    const texmap = sdl.IMG_LoadTexture(renderer, "assets/textures/texmap.png");
+    defer sdl.SDL_DestroyTexture(texmap);
 
     var camera = Camera{};
 
@@ -324,14 +324,14 @@ pub fn main() !void {
     var quit = false;
 
     while (!quit) {
-        frame_start = c.SDL_GetTicks();
-        var event: c.SDL_Event = undefined;
-        while (c.SDL_PollEvent(&event) != 0) {
+        frame_start = sdl.SDL_GetTicks();
+        var event: sdl.SDL_Event = undefined;
+        while (sdl.SDL_PollEvent(&event) != 0) {
             switch (event.type) {
-                c.SDL_QUIT => {
+                sdl.SDL_QUIT => {
                     quit = true;
                 },
-                c.SDL_KEYDOWN => switch (event.key.keysym.sym) {
+                sdl.SDL_KEYDOWN => switch (event.key.keysym.sym) {
                     'q' => {
                         quit = true;
                     },
@@ -340,7 +340,7 @@ pub fn main() !void {
                     'd' => player.dx = 8,
                     's' => {
                         if (map_edit_enabled) {
-                            if (event.key.keysym.mod & c.KMOD_CTRL != 0) {
+                            if (event.key.keysym.mod & sdl.KMOD_CTRL != 0) {
                                 var t = try std.Thread.spawn(.{}, save, .{ &tmap, alloc });
                                 t.detach();
                             }
@@ -367,15 +367,15 @@ pub fn main() !void {
                     '3' => tile_id_selected = @enumFromInt(3),
                     '4' => tile_id_selected = @enumFromInt(4),
                     '5' => tile_id_selected = @enumFromInt(5),
-                    c.SDLK_F3 => debug_view = !debug_view,
+                    sdl.SDLK_F3 => debug_view = !debug_view,
                     else => {},
                 },
-                c.SDL_KEYUP => switch (event.key.keysym.sym) {
+                sdl.SDL_KEYUP => switch (event.key.keysym.sym) {
                     'a', 'd' => player.dx = 0,
                     else => {},
                 },
-                c.SDL_MOUSEBUTTONDOWN => switch (event.button.button) {
-                    c.SDL_BUTTON_LEFT => {
+                sdl.SDL_MOUSEBUTTONDOWN => switch (event.button.button) {
+                    sdl.SDL_BUTTON_LEFT => {
                         left_mouse_is_down = true;
                         const x = if (event.button.x + camera.x > 0) @as(u32, @intCast(event.button.x + camera.x)) else 0;
                         const y = if (event.button.y + camera.y > 0) @as(u32, @intCast(event.button.y + camera.y)) else 0;
@@ -383,13 +383,13 @@ pub fn main() !void {
                     },
                     else => {},
                 },
-                c.SDL_MOUSEBUTTONUP => switch (event.button.button) {
-                    c.SDL_BUTTON_LEFT => {
+                sdl.SDL_MOUSEBUTTONUP => switch (event.button.button) {
+                    sdl.SDL_BUTTON_LEFT => {
                         left_mouse_is_down = false;
                     },
                     else => {},
                 },
-                c.SDL_MOUSEMOTION => switch (left_mouse_is_down) {
+                sdl.SDL_MOUSEMOTION => switch (left_mouse_is_down) {
                     true => {
                         const x = if (event.button.x + camera.x > 0) @as(u32, @intCast(event.button.x + camera.x)) else 0;
                         const y = if (event.button.y + camera.y > 0) @as(u32, @intCast(event.button.y + camera.y)) else 0;
@@ -397,7 +397,7 @@ pub fn main() !void {
                     },
                     false => {},
                 },
-                c.SDL_MOUSEWHEEL => {
+                sdl.SDL_MOUSEWHEEL => {
                     if (map_edit_enabled) camera.dx = if (event.wheel.x > 0) 20 else if (event.wheel.x < 0) -20 else 0;
                     if (map_edit_enabled) camera.dy = if (event.wheel.y > 0) -20 else if (event.wheel.y < 0) 20 else 0;
                 },
@@ -433,12 +433,12 @@ pub fn main() !void {
                     true => {
                         switch (tile.id) {
                             .Floor, .FloorSurface => {
-                                if (collide(&c.SDL_Rect{
+                                if (collide(&sdl.SDL_Rect{
                                     .x = player.x,
                                     .y = player.y + player.dy,
                                     .w = player.w,
                                     .h = player.h,
-                                }, &c.SDL_Rect{
+                                }, &sdl.SDL_Rect{
                                     .x = tile.x,
                                     .y = tile.y,
                                     .w = tile.w,
@@ -448,12 +448,12 @@ pub fn main() !void {
                                     player.dy = @divFloor(player.dy, 2);
                                     player.jump_count = 0;
                                 }
-                                if (collide(&c.SDL_Rect{
+                                if (collide(&sdl.SDL_Rect{
                                     .x = player.x + player.dx,
                                     .y = player.y,
                                     .w = player.w,
                                     .h = player.h,
-                                }, &c.SDL_Rect{
+                                }, &sdl.SDL_Rect{
                                     .x = tile.x,
                                     .y = tile.y,
                                     .w = tile.w,
@@ -466,12 +466,12 @@ pub fn main() !void {
                             .BluePortal => {
                                 if (std.time.milliTimestamp() - portal_timeout > 1000) {
                                     for (tmap.portals) |p| {
-                                        if (collide(&c.SDL_Rect{
+                                        if (collide(&sdl.SDL_Rect{
                                             .x = player.x + player.dx,
                                             .y = player.y + player.dy,
                                             .w = player.w,
                                             .h = player.h,
-                                        }, &c.SDL_Rect{
+                                        }, &sdl.SDL_Rect{
                                             .x = p.x,
                                             .y = p.y,
                                             .w = p.w,
@@ -524,7 +524,7 @@ pub fn main() !void {
 
         // no more doing, just draw
         set_render_color(renderer, Color.dark_gray);
-        _ = c.SDL_RenderClear(renderer);
+        _ = sdl.SDL_RenderClear(renderer);
 
         if (!map_edit_enabled) direct_cam_toward_player(&player, &camera, &tmap);
 
@@ -549,16 +549,16 @@ pub fn main() !void {
                         .BluePortal => {
                             draw_offset.x = WALL_X_OFFSET;
                             draw_offset.y = WALL_Y_OFFSET;
-                            _ = c.SDL_RenderCopy(
+                            _ = sdl.SDL_RenderCopy(
                                 renderer,
                                 texmap,
-                                &c.SDL_Rect{
+                                &sdl.SDL_Rect{
                                     .x = draw_offset.x,
                                     .y = draw_offset.y,
                                     .w = 32,
                                     .h = 32,
                                 },
-                                &c.SDL_Rect{
+                                &sdl.SDL_Rect{
                                     .x = @intCast(x_to_cam),
                                     .y = @intCast(y_to_cam),
                                     .w = tile.w,
@@ -571,16 +571,16 @@ pub fn main() !void {
                         .FinishLine => {
                             draw_offset.x = WALL_X_OFFSET;
                             draw_offset.y = WALL_Y_OFFSET;
-                            _ = c.SDL_RenderCopy(
+                            _ = sdl.SDL_RenderCopy(
                                 renderer,
                                 texmap,
-                                &c.SDL_Rect{
+                                &sdl.SDL_Rect{
                                     .x = draw_offset.x,
                                     .y = draw_offset.y,
                                     .w = 32,
                                     .h = 32,
                                 },
-                                &c.SDL_Rect{
+                                &sdl.SDL_Rect{
                                     .x = @intCast(x_to_cam),
                                     .y = @intCast(y_to_cam),
                                     .w = tile.w,
@@ -595,16 +595,16 @@ pub fn main() !void {
                             draw_offset.y = SURFACE_Y_OFFSET;
                         },
                     }
-                    _ = c.SDL_RenderCopy(
+                    _ = sdl.SDL_RenderCopy(
                         renderer,
                         texmap,
-                        &c.SDL_Rect{
+                        &sdl.SDL_Rect{
                             .x = draw_offset.x,
                             .y = draw_offset.y,
                             .w = 32,
                             .h = 32,
                         },
-                        &c.SDL_Rect{
+                        &sdl.SDL_Rect{
                             .x = @intCast(x_to_cam),
                             .y = @intCast(y_to_cam),
                             .w = tile.w,
@@ -613,9 +613,9 @@ pub fn main() !void {
                     );
                     if (debug_view) {
                         set_render_color(renderer, Color.green);
-                        _ = c.SDL_RenderDrawRect(
+                        _ = sdl.SDL_RenderDrawRect(
                             renderer,
-                            &c.SDL_Rect{
+                            &sdl.SDL_Rect{
                                 .x = @intCast(x_to_cam),
                                 .y = @intCast(y_to_cam),
                                 .w = tile.w,
@@ -634,17 +634,17 @@ pub fn main() !void {
                 prev_time = new_time;
             }
         } else source_offset = 0;
-        const flip: c_uint = if (player.dx < 0) c.SDL_FLIP_HORIZONTAL else c.SDL_FLIP_NONE;
-        _ = c.SDL_RenderCopyEx(
+        const flip: c_uint = if (player.dx < 0) sdl.SDL_FLIP_HORIZONTAL else sdl.SDL_FLIP_NONE;
+        _ = sdl.SDL_RenderCopyEx(
             renderer,
             texmap,
-            &c.SDL_Rect{
+            &sdl.SDL_Rect{
                 .x = PLAYER_X_OFFSET + source_offset,
                 .y = PLAYER_Y_OFFSET,
                 .w = 24,
                 .h = 31,
             },
-            &c.SDL_Rect{
+            &sdl.SDL_Rect{
                 .x = @intCast(player.x - camera.x),
                 .y = @intCast(player.y - camera.y),
                 .w = player.w,
@@ -656,9 +656,9 @@ pub fn main() !void {
         );
         set_render_color(renderer, Color.white);
         if (debug_view) {
-            _ = c.SDL_RenderDrawRect(
+            _ = sdl.SDL_RenderDrawRect(
                 renderer,
-                &c.SDL_Rect{
+                &sdl.SDL_Rect{
                     .x = @intCast(player.x - camera.x),
                     .y = @intCast(player.y - camera.y),
                     .w = player.w,
@@ -667,7 +667,7 @@ pub fn main() !void {
             );
         }
 
-        c.SDL_RenderPresent(renderer);
+        sdl.SDL_RenderPresent(renderer);
 
         if (frame_avg_idx == FRAME_AVG_COUNT) {
             frame_avg_idx = 0;
@@ -676,8 +676,8 @@ pub fn main() !void {
             frame_avg[frame_avg_idx] = if (frame_time > 0) 1000 / frame_time else 0;
             frame_avg_idx += 1;
         }
-        frame_time = c.SDL_GetTicks() - frame_start;
+        frame_time = sdl.SDL_GetTicks() - frame_start;
 
-        if (FRAME_DELAY > frame_time) c.SDL_Delay(FRAME_DELAY - frame_time);
+        if (FRAME_DELAY > frame_time) sdl.SDL_Delay(FRAME_DELAY - frame_time);
     }
 }
